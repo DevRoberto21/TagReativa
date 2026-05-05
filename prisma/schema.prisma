@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PetStatus {
+  SAFE
+  LOST
+  RESCUE_CONFIRMED
+}
+
+enum LocationSource {
+  GPS
+  IP
+}
+
+model User {
+  id           String @id @default(uuid())
+  name         String
+  email        String @unique
+  passwordHash String
+  whatsapp     String
+  pets         Pet[]
+}
+
+model Pet {
+  id                      String    @id @default(uuid())
+  ownerId                 String
+  owner                   User      @relation(fields: [ownerId], references: [id])
+  name                    String
+  species                 String
+  qrCodeUrl               String    @unique
+  physicalFallbackConsent Boolean   @default(false)
+  status                  PetStatus @default(SAFE)
+  scanLogs                ScanLog[]
+}
+
+model ScanLog {
+  id             String         @id @default(uuid())
+  petId          String
+  pet            Pet            @relation(fields: [petId], references: [id])
+  latitude       Float?
+  longitude      Float?
+  ipAddress      String
+  locationSource LocationSource
+  consentGranted Boolean
+  consentVersion String
+  timestamp      DateTime       @default(now())
+}
