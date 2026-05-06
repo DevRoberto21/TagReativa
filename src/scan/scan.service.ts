@@ -40,13 +40,15 @@ export class ScanService {
       },
     });
 
-    // MOCK: Simulação do envio de WhatsApp
-    console.log(
-      `[WhatsApp MOCK] Notificando tutor ${pet.owner.name} ` +
-        `(${pet.owner.whatsapp}): seu pet "${pet.name}" foi encontrado! ` +
-        `Localização: ${dto.latitude ?? 'N/A'}, ${dto.longitude ?? 'N/A'}`,
-    );
+    if (pet.status === 'LOST') {
+      console.log(
+        `[WhatsApp MOCK] Notificando tutor ${pet.owner.name} ` +
+          `(${pet.owner.whatsapp}): seu pet "${pet.name}" foi encontrado! ` +
+          `Localização: ${dto.latitude ?? 'N/A'}, ${dto.longitude ?? 'N/A'}`,
+      );
+      return { message: 'Scan registrado. Tutor notificado.' };
+    }
 
-    return { message: 'Scan registrado. Tutor notificado.' };
+    return { message: 'Scan registrado.' };
   }
 }
