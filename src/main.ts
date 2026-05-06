@@ -5,6 +5,24 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
-  await app.listen(3000);
+
+  const defaultPort = parseInt(process.env.PORT ?? '3000', 10);
+  try {
+    await app.listen(defaultPort);
+    console.log(`Server is running on http://localhost:${defaultPort}`);
+  } catch (error) {
+    const err = error as NodeJS.ErrnoException;
+    if (err?.code === 'EADDRINUSE') {
+      const fallbackPort = defaultPort + 1;
+      console.warn(
+        `Port ${defaultPort} is already in use. Starting on port ${fallbackPort} instead.`,
+      );
+      await app.listen(fallbackPort);
+      console.log(`Server is running on http://localhost:${fallbackPort}`);
+    } else {
+      throw error;
+    }
+  }
 }
-bootstrap();
+
+void bootstrap();
