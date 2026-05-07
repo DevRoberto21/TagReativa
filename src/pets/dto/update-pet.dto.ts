@@ -1,23 +1,24 @@
 import {
-  IsString,
-  IsBoolean,
-  IsInt,
   IsOptional,
+  IsString,
+  MinLength,
+  IsInt,
   Min,
   Max,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
-export class CreatePetDto {
+export class UpdatePetDto {
+  @IsOptional()
   @IsString()
-  name!: string;
+  @MinLength(2)
+  name?: string;
 
+  @IsOptional()
   @Transform(({ value }: { value: string }) => value.toLowerCase())
   @IsString()
-  species!: string;
-
-  @IsBoolean()
-  physicalFallbackConsent!: boolean;
+  @MinLength(2)
+  species?: string;
 
   @IsOptional()
   @IsInt()

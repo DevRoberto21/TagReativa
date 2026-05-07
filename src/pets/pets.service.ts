@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePetDto } from './dto/create-pet.dto';
+import { UpdatePetDto } from './dto/update-pet.dto';
 import { randomUUID } from 'crypto';
 import { PetStatus, Pet } from '@prisma/client';
 import * as QRCode from 'qrcode';
@@ -26,6 +27,7 @@ export class PetsService {
         species: dto.species,
         physicalFallbackConsent: dto.physicalFallbackConsent,
         qrCodeUrl,
+        age: dto.age,
       },
     });
 
@@ -34,6 +36,39 @@ export class PetsService {
 
   async findAllByOwner(ownerId: string) {
     return this.prisma.pet.findMany({ where: { ownerId } });
+  }
+
+  async findOne(petId: string, ownerId: string): Promise<Pet> {
+    const pet = await this.prisma.pet.findUnique({ where: { id: petId } });
+
+    if (!pet) throw new NotFoundException('Pet não encontrado.');
+    if (pet.ownerId !== ownerId) throw new ForbiddenException('Acesso negado.');
+
+    return pet;
+  }
+  async updatePet(
+    petId: string,
+    ownerId: string,
+    dto: UpdatePetDto,
+  ): Promise<Pet> {
+    const pet = await this.prisma.pet.findUnique({ where: { id: petId } });
+
+    if (!pet) throw new NotFoundException('Pet não encontrado.');
+    if (pet.ownerId !== ownerId) throw new ForbiddenException('Acesso negado.');
+
+    return this.prisma.pet.update({
+      where: { id: petId },
+      data: { ...dto },
+    });
+  }
+
+  async deletePet(petId: string, ownerId: string): Promise<void> {
+    const pet = await this.prisma.pet.findUnique({ where: { id: petId } });
+
+    if (!pet) throw new NotFoundException('Pet não encontrado.');
+    if (pet.ownerId !== ownerId) throw new ForbiddenException('Acesso negado.');
+
+    await this.prisma.pet.delete({ where: { id: petId } });
   }
 
   async updateStatus(

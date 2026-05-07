@@ -1,4 +1,12 @@
-import { IsEmail, IsString, Matches, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  Matches,
+  MinLength,
+  IsInt,
+  IsOptional,
+  Min,
+} from 'class-validator';
 
 export class CreateUserDto {
   @IsString()
@@ -14,4 +22,9 @@ export class CreateUserDto {
     message: 'whatsapp deve estar no formato (DD)9XXXX-XXXX',
   })
   whatsapp!: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(18)
+  age?: number;
 }

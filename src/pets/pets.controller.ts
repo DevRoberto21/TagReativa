@@ -7,11 +7,13 @@ import {
   Request,
   Patch,
   Param,
+  Delete,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PetsService } from './pets.service';
 import { CreatePetDto } from './dto/create-pet.dto';
 import { UpdatePetStatusDto } from './dto/update-pet-status.dto';
+import { UpdatePetDto } from './dto/update-pet.dto';
 
 interface AuthenticatedRequest {
   user: {
@@ -33,6 +35,10 @@ export class PetsController {
   findAll(@Request() req: AuthenticatedRequest) {
     return this.petsService.findAllByOwner(req.user.userId);
   }
+  @Get(':id')
+  findOne(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    return this.petsService.findOne(id, req.user.userId);
+  }
 
   @Patch(':id/status')
   updateStatus(
@@ -41,6 +47,20 @@ export class PetsController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.petsService.updateStatus(id, req.user.userId, dto.status);
+  }
+
+  @Patch(':id')
+  updatePet(
+    @Param('id') id: string,
+    @Body() dto: UpdatePetDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.petsService.updatePet(id, req.user.userId, dto);
+  }
+
+  @Delete(':id')
+  deletePet(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    return this.petsService.deletePet(id, req.user.userId);
   }
 
   @Get(':id/scans')
