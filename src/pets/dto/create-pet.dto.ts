@@ -21,7 +21,7 @@ export class CreatePetDto {
 
   @IsOptional()
   @IsInt()
-  @Min(0)
+  @Min(1)
   @Max(50)
   age?: number;
 }
