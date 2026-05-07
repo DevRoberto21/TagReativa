@@ -23,7 +23,7 @@ model User {
   name         String
   email        String @unique
   passwordHash String
-  whatsapp     String
+  whatsapp     String @unique
   age          Int?
   pets         Pet[]
 }
@@ -31,7 +31,7 @@ model User {
 model Pet {
   id                      String    @id @default(uuid())
   ownerId                 String
-  owner                   User      @relation(fields: [ownerId], references: [id])
+  owner                   User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name                    String
   species                 String
   age                     Int?
@@ -44,7 +44,7 @@ model Pet {
 model ScanLog {
   id             String         @id @default(uuid())
   petId          String
-  pet            Pet            @relation(fields: [petId], references: [id])
+  pet            Pet            @relation(fields: [petId], references: [id], onDelete: Cascade)
   latitude       Float?
   longitude      Float?
   ipAddress      String
