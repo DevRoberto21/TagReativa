@@ -49,7 +49,7 @@ export default function NewPet() {
           </select>
 
           <label style={styles.label}>Idade (anos) — opcional</label>
-          <input style={styles.input} type="number" placeholder="Ex: 3" value={age} onChange={e => setAge(e.target.value)} min={0} max={50} />
+          <input style={styles.input} type="number" placeholder="Ex: 3" value={age} onChange={e => setAge(e.target.value)} min={1} max={50} />
 
           {error && <p style={styles.error}>{error}</p>}
           <button style={styles.button} type="submit">Salvar e Gerar Tag</button>

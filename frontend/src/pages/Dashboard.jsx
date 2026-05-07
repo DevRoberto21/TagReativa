@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 
+function petEmoji(species) {
+  if (species === 'cachorro') return '🐶';
+  if (species === 'gato') return '🐱';
+  return '🐾';
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -59,7 +65,7 @@ export default function Dashboard() {
           return (
             <div key={pet.id} style={{ ...styles.card, borderColor: lost ? '#FECACA' : '#BBF7D0', background: lost ? '#FFF1F2' : '#F0FDF4' }}>
               <div style={styles.cardTop}>
-                <div style={styles.petPhoto}>🐶</div>
+                <div style={styles.petPhoto}>{petEmoji(pet.species)}</div>
                 <div style={styles.petInfo}>
                   <div style={styles.petName}>{pet.name}</div>
                   <div style={styles.petSpecies}>{pet.species}</div>
