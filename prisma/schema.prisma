@@ -24,6 +24,7 @@ model User {
   email        String @unique
   passwordHash String
   whatsapp     String
+  age          Int?
   pets         Pet[]
 }
 
@@ -33,6 +34,7 @@ model Pet {
   owner                   User      @relation(fields: [ownerId], references: [id])
   name                    String
   species                 String
+  age                     Int?
   qrCodeUrl               String    @unique
   physicalFallbackConsent Boolean   @default(false)
   status                  PetStatus @default(SAFE)
