@@ -9,6 +9,7 @@ export default function Profile() {
   const [age, setAge] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     api.get('/users/me')
@@ -36,6 +37,19 @@ export default function Profile() {
       setSuccess(true);
     } catch {
       setError('Erro ao salvar alterações.');
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!window.confirm('Excluir sua conta permanentemente? Todos os seus pets e dados serão removidos. Esta ação não pode ser desfeita.')) return;
+    setDeleting(true);
+    try {
+      await api.delete('/users/me');
+      localStorage.clear();
+      navigate('/login');
+    } catch {
+      setError('Erro ao excluir conta.');
+      setDeleting(false);
     }
   }
 
@@ -68,6 +82,14 @@ export default function Profile() {
 
           <button style={styles.button} type="submit">Salvar Alterações</button>
         </form>
+
+        <button
+          onClick={handleDeleteAccount}
+          disabled={deleting}
+          style={styles.deleteButton}
+        >
+          {deleting ? 'Excluindo...' : 'Excluir Minha Conta'}
+        </button>
       </div>
     </div>
   );
@@ -85,6 +107,7 @@ const styles = {
   input: { padding: '12px 14px', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '14px', outline: 'none' },
   notice: { background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', color: '#1D4ED8' },
   button: { padding: '12px', borderRadius: '8px', background: '#2563EB', color: '#fff', fontWeight: 'bold', fontSize: '15px', border: 'none', cursor: 'pointer', marginTop: '8px' },
+  deleteButton: { width: '100%', marginTop: '16px', padding: '12px', borderRadius: '8px', background: '#FFF1F2', color: '#DC2626', fontWeight: 'bold', fontSize: '15px', border: '1px solid #FECACA', cursor: 'pointer' },
   error: { color: '#DC2626', fontSize: '13px' },
   success: { color: '#16A34A', fontSize: '13px' },
 };

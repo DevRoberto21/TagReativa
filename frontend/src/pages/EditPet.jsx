@@ -9,6 +9,7 @@ export default function EditPet() {
   const [species, setSpecies] = useState('Cachorro');
   const [age, setAge] = useState('');
   const [error, setError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     api.get(`/pets/${id}`)
@@ -30,6 +31,19 @@ export default function EditPet() {
       navigate('/dashboard');
     } catch {
       setError('Erro ao salvar alterações.');
+    }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm('Remover este pet permanentemente? Esta ação não pode ser desfeita.')) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/pets/${id}`);
+      localStorage.removeItem(`qr_${id}`);
+      navigate('/dashboard');
+    } catch {
+      setError('Erro ao remover pet.');
+      setDeleting(false);
     }
   }
 
@@ -58,6 +72,14 @@ export default function EditPet() {
           {error && <p style={styles.error}>{error}</p>}
           <button style={styles.button} type="submit">Salvar Alterações</button>
         </form>
+
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          style={styles.deleteButton}
+        >
+          {deleting ? 'Removendo...' : 'Remover Pet'}
+        </button>
       </div>
     </div>
   );
@@ -73,5 +95,6 @@ const styles = {
   label: { fontSize: '13px', fontWeight: 'bold', color: '#374151' },
   input: { padding: '12px 14px', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '14px', outline: 'none' },
   button: { padding: '12px', borderRadius: '8px', background: '#2563EB', color: '#fff', fontWeight: 'bold', fontSize: '15px', border: 'none', cursor: 'pointer', marginTop: '8px' },
+  deleteButton: { width: '100%', marginTop: '16px', padding: '12px', borderRadius: '8px', background: '#FFF1F2', color: '#DC2626', fontWeight: 'bold', fontSize: '15px', border: '1px solid #FECACA', cursor: 'pointer' },
   error: { color: '#DC2626', fontSize: '13px' },
 };
