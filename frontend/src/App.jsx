@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import NewPet from './pages/NewPet';
 import EditPet from './pages/EditPet';
 import Profile from './pages/Profile';
+import ScanPage from './pages/ScanPage';
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access_token');
@@ -17,6 +18,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/scan/:petId" element={<ScanPage />} />
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/pets/novo" element={<PrivateRoute><NewPet /></PrivateRoute>} />
         <Route path="/pets/:id/editar" element={<PrivateRoute><EditPet /></PrivateRoute>} />
