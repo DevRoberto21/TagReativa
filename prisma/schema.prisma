@@ -18,14 +18,20 @@ enum LocationSource {
   IP
 }
 
+enum NotificationChannel {
+  WHATSAPP
+  EMAIL
+}
+
 model User {
-  id           String @id @default(uuid())
-  name         String
-  email        String @unique
-  passwordHash String
-  whatsapp     String @unique
-  age          Int?
-  pets         Pet[]
+  id              String  @id @default(uuid())
+  name            String
+  email           String  @unique
+  passwordHash    String
+  whatsapp        String  @unique
+  callMeBotApiKey String?
+  age             Int?
+  pets            Pet[]
 }
 
 model Pet {
@@ -34,6 +40,8 @@ model Pet {
   owner                   User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name                    String
   species                 String
+  breed                   String?
+  photoUrl                String?
   age                     Int?
   qrCodeUrl               String    @unique
   physicalFallbackConsent Boolean   @default(false)
@@ -52,4 +60,14 @@ model ScanLog {
   consentGranted Boolean
   consentVersion String
   timestamp      DateTime       @default(now())
+  notification   Notification?
+}
+
+model Notification {
+  id        String              @id @default(uuid())
+  scanLogId String              @unique
+  scanLog   ScanLog             @relation(fields: [scanLogId], references: [id], onDelete: Cascade)
+  channel   NotificationChannel
+  sentAt    DateTime            @default(now())
+  delivered Boolean             @default(false)
 }
