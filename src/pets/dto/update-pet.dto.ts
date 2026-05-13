@@ -5,8 +5,8 @@ import {
   IsInt,
   Min,
   Max,
+  IsBoolean,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
 
 export class UpdatePetDto {
   @IsOptional()
@@ -15,14 +15,25 @@ export class UpdatePetDto {
   name?: string;
 
   @IsOptional()
-  @Transform(({ value }: { value: string }) => value.toLowerCase())
   @IsString()
   @MinLength(2)
   species?: string;
+
+  @IsOptional()
+  @IsString()
+  breed?: string;
+
+  @IsOptional()
+  @IsString()
+  photoUrl?: string;
 
   @IsOptional()
   @IsInt()
   @Min(1)
   @Max(50)
   age?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  physicalFallbackConsent?: boolean;
 }

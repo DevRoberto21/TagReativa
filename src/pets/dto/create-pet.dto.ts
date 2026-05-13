@@ -6,18 +6,24 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
 
 export class CreatePetDto {
   @IsString()
   name!: string;
 
-  @Transform(({ value }: { value: string }) => value.toLowerCase())
   @IsString()
   species!: string;
 
   @IsBoolean()
   physicalFallbackConsent!: boolean;
+
+  @IsOptional()
+  @IsString()
+  breed?: string;
+
+  @IsOptional()
+  @IsString()
+  photoUrl?: string;
 
   @IsOptional()
   @IsInt()
