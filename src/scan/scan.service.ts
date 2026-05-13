@@ -91,10 +91,12 @@ export class ScanService {
 
     if (pet.status === 'LOST' && pet.owner.callMeBotApiKey) {
       const hasLocation = latitude != null && longitude != null;
+      const isGps = locationSource === LocationSource.GPS;
       const message = hasLocation
-        ? `Seu pet ${pet.name} foi encontrado! https://maps.google.com/?q=${latitude},${longitude}`
-        : `Seu pet ${pet.name} foi encontrado!`;
-
+        ? isGps
+          ? `Seu pet ${pet.name} foi encontrado! 📍 Localização GPS: https://maps.google.com/?q=${latitude},${longitude}`
+          : `Seu pet ${pet.name} foi encontrado! O resgatador negou o GPS, Não foi possível obter localização precisa. O endereço abaixo é baseado no IP e pode estar em outra cidade: https://maps.google.com/?q=${latitude},${longitude}`
+        : `Seu pet ${pet.name} foi encontrado! Não foi possível obter localização.`;
       const delivered = await sendCallMeBot(
         pet.owner.whatsapp,
         pet.owner.callMeBotApiKey,
@@ -119,6 +121,8 @@ export class ScanService {
         name: pet.name,
         species: pet.species,
         status: pet.status,
+        photoUrl: pet.photoUrl ?? null,
+        physicalFallbackConsent: pet.physicalFallbackConsent,
       },
       owner: {
         whatsapp: pet.status === 'LOST' ? pet.owner.whatsapp : null,
