@@ -28,6 +28,8 @@ export class PetsService {
         physicalFallbackConsent: dto.physicalFallbackConsent,
         qrCodeUrl,
         age: dto.age,
+        breed: dto.breed,
+        photoUrl: dto.photoUrl,
       },
     });
 
