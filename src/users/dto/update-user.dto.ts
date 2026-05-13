@@ -1,4 +1,11 @@
-import { IsOptional, IsString, MinLength, IsInt, Min } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  Matches,
+  MinLength,
+  IsInt,
+  Min,
+} from 'class-validator';
 
 export class UpdateUserDto {
   @IsOptional()
@@ -7,7 +14,10 @@ export class UpdateUserDto {
   name?: string;
 
   @IsOptional()
-  @IsString()
+  @Matches(/^55\d{2}\d{8,9}$/, {
+    message:
+      'whatsapp deve estar no formato internacional: 55DDD9XXXXXXXX (ex: 558194640291)',
+  })
   whatsapp?: string;
 
   @IsOptional()
