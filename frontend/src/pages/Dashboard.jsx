@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 
-function petEmoji(species) {
-  if (species === 'cachorro') return '🐶';
-  if (species === 'gato') return '🐱';
-  return '🐾';
+function PetAvatar({ pet }) {
+  if (pet.photoUrl) {
+    return <img src={pet.photoUrl} alt={pet.name} style={styles.petPhoto} />;
+  }
+  const emoji = pet.species === 'cachorro' ? '🐶' : pet.species === 'gato' ? '🐱' : '🐾';
+  return <div style={styles.petPhotoEmoji}>{emoji}</div>;
 }
 
 export default function Dashboard() {
@@ -65,7 +67,7 @@ export default function Dashboard() {
           return (
             <div key={pet.id} style={{ ...styles.card, borderColor: lost ? '#FECACA' : '#BBF7D0', background: lost ? '#FFF1F2' : '#F0FDF4' }}>
               <div style={styles.cardTop}>
-                <div style={styles.petPhoto}>{petEmoji(pet.species)}</div>
+                <PetAvatar pet={pet} />
                 <div style={styles.petInfo}>
                   <div style={styles.petName}>{pet.name}</div>
                   <div style={styles.petSpecies}>{pet.species}</div>
@@ -116,7 +118,8 @@ const styles = {
   empty: { color: '#6B7280', textAlign: 'center', marginTop: '40px' },
   card: { borderRadius: '12px', border: '1.5px solid', padding: '16px', background: '#fff' },
   cardTop: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' },
-  petPhoto: { fontSize: '36px' },
+  petPhoto: { width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #D1D5DB', flexShrink: 0 },
+  petPhotoEmoji: { fontSize: '36px', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   petInfo: { flex: 1 },
   petName: { fontWeight: 'bold', fontSize: '16px', color: '#1F2937' },
   petSpecies: { fontSize: '13px', color: '#6B7280' },
