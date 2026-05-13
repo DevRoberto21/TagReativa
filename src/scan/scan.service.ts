@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { LocationSource } from '@prisma/client';
+import { LocationSource, NotificationChannel } from '@prisma/client';
 
 export interface ScanDto {
   petId: string;
@@ -9,6 +9,48 @@ export interface ScanDto {
   ipAddress: string;
   consentGranted: boolean;
   consentVersion: string;
+}
+
+interface IpApiResponse {
+  status: 'success' | 'fail';
+  lat?: number;
+  lon?: number;
+}
+
+async function resolveLocationByIp(
+  ip: string,
+): Promise<{ latitude: number | null; longitude: number | null }> {
+  const privateIp = /^(127\.|::1$|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
+  if (privateIp.test(ip)) return { latitude: null, longitude: null };
+
+  try {
+    const res = await fetch(
+      `http://ip-api.com/json/${ip}?fields=status,lat,lon`,
+    );
+    const data = (await res.json()) as IpApiResponse;
+    if (data.status === 'success' && data.lat != null && data.lon != null) {
+      return { latitude: data.lat, longitude: data.lon };
+    }
+  } catch {
+    // falha silenciosa
+  }
+
+  return { latitude: null, longitude: null };
+}
+
+async function sendCallMeBot(
+  whatsapp: string,
+  apiKey: string,
+  message: string,
+): Promise<boolean> {
+  try {
+    const encoded = encodeURIComponent(message);
+    const url = `https://api.callmebot.com/whatsapp.php?phone=${whatsapp}&text=${encoded}&apikey=${apiKey}`;
+    const res = await fetch(url);
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 @Injectable()
@@ -23,16 +65,23 @@ export class ScanService {
 
     if (!pet) throw new NotFoundException('Pet não encontrado.');
 
-    const locationSource =
-      dto.consentGranted && dto.latitude != null
-        ? LocationSource.GPS
-        : LocationSource.IP;
+    const hasGps = dto.consentGranted && dto.latitude != null;
+    const locationSource = hasGps ? LocationSource.GPS : LocationSource.IP;
 
-    await this.prisma.scanLog.create({
+    let latitude = dto.latitude ?? null;
+    let longitude = dto.longitude ?? null;
+
+    if (!hasGps) {
+      const resolved = await resolveLocationByIp(dto.ipAddress);
+      latitude = resolved.latitude;
+      longitude = resolved.longitude;
+    }
+
+    const scanLog = await this.prisma.scanLog.create({
       data: {
         petId: pet.id,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
+        latitude,
+        longitude,
         ipAddress: dto.ipAddress,
         locationSource,
         consentGranted: dto.consentGranted,
@@ -40,15 +89,40 @@ export class ScanService {
       },
     });
 
-    if (pet.status === 'LOST') {
-      console.log(
-        `[WhatsApp MOCK] Notificando tutor ${pet.owner.name} ` +
-          `(${pet.owner.whatsapp}): seu pet "${pet.name}" foi encontrado! ` +
-          `Localização: ${dto.latitude ?? 'N/A'}, ${dto.longitude ?? 'N/A'}`,
+    if (pet.status === 'LOST' && pet.owner.callMeBotApiKey) {
+      const hasLocation = latitude != null && longitude != null;
+      const message = hasLocation
+        ? `Seu pet ${pet.name} foi encontrado! https://maps.google.com/?q=${latitude},${longitude}`
+        : `Seu pet ${pet.name} foi encontrado!`;
+
+      const delivered = await sendCallMeBot(
+        pet.owner.whatsapp,
+        pet.owner.callMeBotApiKey,
+        message,
       );
-      return { message: 'Scan registrado. Tutor notificado.' };
+
+      try {
+        await this.prisma.notification.create({
+          data: {
+            scanLogId: scanLog.id,
+            channel: NotificationChannel.WHATSAPP,
+            delivered,
+          },
+        });
+      } catch (err: unknown) {
+        console.error('[Notification] Falha ao persistir registro:', err);
+      }
     }
 
-    return { message: 'Scan registrado.' };
+    return {
+      pet: {
+        name: pet.name,
+        species: pet.species,
+        status: pet.status,
+      },
+      owner: {
+        whatsapp: pet.status === 'LOST' ? pet.owner.whatsapp : null,
+      },
+    };
   }
 }
