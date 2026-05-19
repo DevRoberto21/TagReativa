@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CallMeBotService } from '../callmebot/callmebot.service';
 import { LocationSource, NotificationChannel } from '@prisma/client';
 
 export interface ScanDto {
@@ -17,49 +18,33 @@ interface IpApiResponse {
   lon?: number;
 }
 
-async function resolveLocationByIp(
-  ip: string,
-): Promise<{ latitude: number | null; longitude: number | null }> {
-  const privateIp = /^(127\.|::1$|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
-  if (privateIp.test(ip)) return { latitude: null, longitude: null };
-
-  try {
-    const res = await fetch(
-      `http://ip-api.com/json/${ip}?fields=status,lat,lon`,
-    );
-    const data = (await res.json()) as IpApiResponse;
-    if (data.status === 'success' && data.lat != null && data.lon != null) {
-      return { latitude: data.lat, longitude: data.lon };
-    }
-  } catch {
-    // falha silenciosa
-  }
-
-  return { latitude: null, longitude: null };
-}
-
-async function sendCallMeBot(
-  whatsapp: string,
-  apiKey: string,
-  message: string,
-): Promise<boolean> {
-  try {
-    const encoded = encodeURIComponent(message);
-    const url = `https://api.callmebot.com/whatsapp.php?phone=${whatsapp}&text=${encoded}&apikey=${apiKey}`;
-    console.log('[CALLMEBOT] URL:', url);
-    const res = await fetch(url);
-    const text = await res.text();
-    console.log('[CALLMEBOT] status:', res.status, '| body:', text);
-    return res.ok;
-  } catch (err) {
-    console.error('[CALLMEBOT] fetch error:', err);
-    return false;
-  }
-}
-
 @Injectable()
 export class ScanService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private callMeBot: CallMeBotService,
+  ) {}
+
+  private async resolveLocationByIp(
+    ip: string,
+  ): Promise<{ latitude: number | null; longitude: number | null }> {
+    const privateIp = /^(127\.|::1$|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
+    if (privateIp.test(ip)) return { latitude: null, longitude: null };
+
+    try {
+      const res = await fetch(
+        `http://ip-api.com/json/${ip}?fields=status,lat,lon`,
+      );
+      const data = (await res.json()) as IpApiResponse;
+      if (data.status === 'success' && data.lat != null && data.lon != null) {
+        return { latitude: data.lat, longitude: data.lon };
+      }
+    } catch {
+      // falha silenciosa
+    }
+
+    return { latitude: null, longitude: null };
+  }
 
   async processScan(dto: ScanDto) {
     const pet = await this.prisma.pet.findUnique({
@@ -76,7 +61,7 @@ export class ScanService {
     let longitude = dto.longitude ?? null;
 
     if (!hasGps) {
-      const resolved = await resolveLocationByIp(dto.ipAddress);
+      const resolved = await this.resolveLocationByIp(dto.ipAddress);
       latitude = resolved.latitude;
       longitude = resolved.longitude;
     }
@@ -99,10 +84,10 @@ export class ScanService {
       const message = hasLocation
         ? isGps
           ? `Seu pet ${pet.name} foi encontrado! 📍 Localização GPS: https://maps.google.com/?q=${latitude},${longitude}`
-          : `Seu pet ${pet.name} foi encontrado! O resgatador negou o GPS, Não foi possível obter localização precisa. O endereço abaixo é baseado no IP e pode estar em outra cidade: https://maps.google.com/?q=${latitude},${longitude}`
+          : `Seu pet ${pet.name} foi encontrado! O resgatador negou o GPS. Endereço baseado no IP (pode estar impreciso): https://maps.google.com/?q=${latitude},${longitude}`
         : `Seu pet ${pet.name} foi encontrado! Não foi possível obter localização.`;
 
-      const delivered = await sendCallMeBot(
+      const delivered = await this.callMeBot.send(
         pet.owner.whatsapp,
         pet.owner.callMeBotApiKey,
         message,
@@ -130,6 +115,7 @@ export class ScanService {
         notes: pet.notes ?? null,
       },
       owner: {
+        name: pet.status === 'LOST' ? pet.owner.name : null,
         whatsapp: pet.status === 'LOST' ? pet.owner.whatsapp : null,
       },
     };

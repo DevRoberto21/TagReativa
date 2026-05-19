@@ -16,7 +16,7 @@ export class UpdateUserDto {
   @IsOptional()
   @Matches(/^55\d{2}\d{8,9}$/, {
     message:
-      'whatsapp deve estar no formato internacional: 55DDD9XXXXXXXX (ex: 558194640291)',
+      'whatsapp deve estar no formato internacional: 55DDD9XXXXXXXX (ex: 5581912345678)',
   })
   whatsapp?: string;
 

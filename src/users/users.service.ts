@@ -5,13 +5,17 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CallMeBotService } from '../callmebot/callmebot.service';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private callMeBot: CallMeBotService,
+  ) {}
 
   async create(dto: CreateUserDto) {
     const exists = await this.prisma.user.findUnique({
@@ -57,14 +61,18 @@ export class UsersService {
     if (!user) throw new NotFoundException('Usuário não encontrado.');
     return user;
   }
-
   async updateMe(userId: string, dto: UpdateUserDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuário não encontrado.');
 
     return this.prisma.user.update({
       where: { id: userId },
-      data: { ...dto },
+      data: {
+        name: dto.name,
+        whatsapp: dto.whatsapp,
+        age: dto.age,
+        callMeBotApiKey: dto.callMeBotApiKey,
+      },
       select: {
         id: true,
         name: true,
@@ -74,32 +82,26 @@ export class UsersService {
       },
     });
   }
-
   async deleteMe(userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuário não encontrado.');
 
     await this.prisma.user.delete({ where: { id: userId } });
   }
+
   async testCallMeBot(userId: string, apiKey: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.whatsapp) {
       throw new BadRequestException('Número de WhatsApp não cadastrado.');
     }
 
-    const phone = user.whatsapp.replace(/\D/g, '');
-    const message = encodeURIComponent(
+    const delivered = await this.callMeBot.send(
+      user.whatsapp,
+      apiKey,
       '✅ TagReativa: configuração confirmada. Você receberá alertas aqui quando seu pet for escaneado.',
     );
-    const url = `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${message}&apikey=${apiKey}`;
 
-    try {
-      const response = await fetch(url);
-      const text = await response.text();
-      if (!response.ok || text.toLowerCase().includes('error')) {
-        throw new Error('CallMeBot rejeitou a requisição.');
-      }
-    } catch {
+    if (!delivered) {
       throw new BadRequestException(
         'Código inválido ou WhatsApp não autorizado no bot.',
       );

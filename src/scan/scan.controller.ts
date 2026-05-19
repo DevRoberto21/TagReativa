@@ -1,13 +1,7 @@
 import { Controller, Post, Param, Body, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { ScanService } from './scan.service';
-
-interface ScanBody {
-  latitude?: number;
-  longitude?: number;
-  consentGranted: boolean;
-  consentVersion: string;
-}
+import { ScanBodyDto } from './dto/scan-body.dto';
 
 @Controller('scan')
 export class ScanController {
@@ -16,7 +10,7 @@ export class ScanController {
   @Post(':petId')
   scan(
     @Param('petId') petId: string,
-    @Body() body: ScanBody,
+    @Body() body: ScanBodyDto,
     @Req() req: Request,
   ) {
     const ipAddress =

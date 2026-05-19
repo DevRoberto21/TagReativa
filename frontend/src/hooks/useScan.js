@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 
 export function useScan(petId) {
     const [result, setResult] = useState(null);
@@ -8,15 +8,18 @@ export function useScan(petId) {
 
     useEffect(() => {
         function doScan(latitude, longitude) {
-            axios
-                .post(`http://localhost:3000/scan/${petId}`, {
+            api
+                .post(`/scan/${petId}`, {
                     latitude,
                     longitude,
                     consentGranted: true,
                     consentVersion: '1.0',
                 })
                 .then(res => setResult(res.data))
-                .catch(() => setError('Pet não encontrado ou erro no servidor.'))
+                .catch((err) => {
+                    console.error('[SCAN ERROR]', err.response?.status, err.response?.data);
+                    setError('Pet não encontrado ou erro no servidor.');
+                })
                 .finally(() => setLoading(false));
         }
 

@@ -12,11 +12,11 @@ import * as QRCode from 'qrcode';
 
 @Injectable()
 export class PetsService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async create(ownerId: string, dto: CreatePetDto) {
     const petId = randomUUID();
-    const qrCodeUrl = `${process.env.APP_URL ?? 'http://localhost:3000'}/scan/${petId}`;
+    const qrCodeUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/scan/${petId}`;
     const qrCodeBase64 = await QRCode.toDataURL(qrCodeUrl);
 
     const pet = await this.prisma.pet.create({

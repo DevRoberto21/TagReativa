@@ -86,6 +86,9 @@ export default function ScanPage() {
             <div style={styles.lostBox}>
               <p style={styles.lostTitle}>⚠️ Sistema de Resgate Ativo</p>
               <p style={styles.lostSub}>Este animal foi reportado como perdido. Utilize o canal abaixo para alertar o tutor:</p>
+              {owner?.name && (
+                <p style={styles.ownerName}>Tutor: {owner.name}</p>
+              )}
               {rawWhatsapp ? (
                 <a href={whatsappHref} target="_blank" rel="noopener noreferrer" style={styles.waButton}>
                   Contatar Tutor via WhatsApp
@@ -126,7 +129,8 @@ const styles = {
   notesText: { color: '#1B4332', fontSize: 14, margin: 0, lineHeight: 1.5, fontWeight: 500 },
   lostBox: { background: '#FFF5F5', border: '1px solid #FED7D7', borderRadius: '16px', padding: 20 },
   lostTitle: { color: '#E63946', fontWeight: 700, margin: '0 0 6px', fontSize: 15 },
-  lostSub: { color: '#52796F', fontSize: 13, margin: '0 0 16px', lineHeight: 1.4 },
+  lostSub: { color: '#52796F', fontSize: 13, margin: '0 0 12px', lineHeight: 1.4 },
+  ownerName: { color: '#2D6A4F', fontSize: 13, fontWeight: 600, margin: '0 0 12px' },
   waButton: { display: 'block', background: '#2D6A4F', color: '#FFF', borderRadius: '12px', padding: '14px', textDecoration: 'none', fontWeight: 600, fontSize: 14, boxShadow: '0 4px 12px rgba(45, 106, 79, 0.15)' },
   noContactText: { color: '#E63946', fontSize: 13, margin: 0, fontWeight: 500 },
   safeBox: { background: '#EAF7F0', border: '1px solid #C6EDD4', borderRadius: '16px', padding: 18 },
