@@ -24,4 +24,8 @@ export class UpdateUserDto {
   @IsInt()
   @Min(18)
   age?: number;
+
+  @IsOptional()
+  @IsString()
+  callMeBotApiKey?: string;
 }

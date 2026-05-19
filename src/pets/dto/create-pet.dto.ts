@@ -1,11 +1,4 @@
-import {
-  IsString,
-  IsBoolean,
-  IsInt,
-  IsOptional,
-  Min,
-  Max,
-} from 'class-validator';
+import { IsString, IsInt, IsOptional, Min, Max } from 'class-validator';
 
 export class CreatePetDto {
   @IsString()
@@ -13,9 +6,6 @@ export class CreatePetDto {
 
   @IsString()
   species!: string;
-
-  @IsBoolean()
-  physicalFallbackConsent!: boolean;
 
   @IsOptional()
   @IsString()
@@ -30,4 +20,8 @@ export class CreatePetDto {
   @Min(1)
   @Max(50)
   age?: number;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }

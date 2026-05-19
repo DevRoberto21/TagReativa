@@ -46,16 +46,20 @@ async function sendCallMeBot(
   try {
     const encoded = encodeURIComponent(message);
     const url = `https://api.callmebot.com/whatsapp.php?phone=${whatsapp}&text=${encoded}&apikey=${apiKey}`;
+    console.log('[CALLMEBOT] URL:', url);
     const res = await fetch(url);
+    const text = await res.text();
+    console.log('[CALLMEBOT] status:', res.status, '| body:', text);
     return res.ok;
-  } catch {
+  } catch (err) {
+    console.error('[CALLMEBOT] fetch error:', err);
     return false;
   }
 }
 
 @Injectable()
 export class ScanService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async processScan(dto: ScanDto) {
     const pet = await this.prisma.pet.findUnique({
@@ -97,6 +101,7 @@ export class ScanService {
           ? `Seu pet ${pet.name} foi encontrado! 📍 Localização GPS: https://maps.google.com/?q=${latitude},${longitude}`
           : `Seu pet ${pet.name} foi encontrado! O resgatador negou o GPS, Não foi possível obter localização precisa. O endereço abaixo é baseado no IP e pode estar em outra cidade: https://maps.google.com/?q=${latitude},${longitude}`
         : `Seu pet ${pet.name} foi encontrado! Não foi possível obter localização.`;
+
       const delivered = await sendCallMeBot(
         pet.owner.whatsapp,
         pet.owner.callMeBotApiKey,
@@ -122,7 +127,7 @@ export class ScanService {
         species: pet.species,
         status: pet.status,
         photoUrl: pet.photoUrl ?? null,
-        physicalFallbackConsent: pet.physicalFallbackConsent,
+        notes: pet.notes ?? null,
       },
       owner: {
         whatsapp: pet.status === 'LOST' ? pet.owner.whatsapp : null,

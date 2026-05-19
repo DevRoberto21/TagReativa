@@ -6,6 +6,7 @@ import {
   Min,
   Max,
   IsBoolean,
+  ValidateIf,
 } from 'class-validator';
 
 export class UpdatePetDto {
@@ -36,4 +37,9 @@ export class UpdatePetDto {
   @IsOptional()
   @IsBoolean()
   physicalFallbackConsent?: boolean;
+
+  @ValidateIf((object, value) => value !== null)
+  @IsString()
+  @IsOptional()
+  notes?: string | null;
 }

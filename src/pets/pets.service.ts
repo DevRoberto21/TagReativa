@@ -12,7 +12,7 @@ import * as QRCode from 'qrcode';
 
 @Injectable()
 export class PetsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(ownerId: string, dto: CreatePetDto) {
     const petId = randomUUID();
@@ -25,11 +25,11 @@ export class PetsService {
         ownerId,
         name: dto.name,
         species: dto.species,
-        physicalFallbackConsent: dto.physicalFallbackConsent,
         qrCodeUrl,
         age: dto.age,
         breed: dto.breed,
         photoUrl: dto.photoUrl,
+        notes: dto.notes,
       },
     });
 

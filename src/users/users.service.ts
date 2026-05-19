@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -79,5 +80,29 @@ export class UsersService {
     if (!user) throw new NotFoundException('Usuário não encontrado.');
 
     await this.prisma.user.delete({ where: { id: userId } });
+  }
+  async testCallMeBot(userId: string, apiKey: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.whatsapp) {
+      throw new BadRequestException('Número de WhatsApp não cadastrado.');
+    }
+
+    const phone = user.whatsapp.replace(/\D/g, '');
+    const message = encodeURIComponent(
+      '✅ TagReativa: configuração confirmada. Você receberá alertas aqui quando seu pet for escaneado.',
+    );
+    const url = `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${message}&apikey=${apiKey}`;
+
+    try {
+      const response = await fetch(url);
+      const text = await response.text();
+      if (!response.ok || text.toLowerCase().includes('error')) {
+        throw new Error('CallMeBot rejeitou a requisição.');
+      }
+    } catch {
+      throw new BadRequestException(
+        'Código inválido ou WhatsApp não autorizado no bot.',
+      );
+    }
   }
 }
