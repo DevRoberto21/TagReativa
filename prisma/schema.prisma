@@ -46,6 +46,7 @@ model Pet {
   qrCodeUrl               String    @unique
   physicalFallbackConsent Boolean   @default(false)
   status                  PetStatus @default(SAFE)
+  notes                   String?
   scanLogs                ScanLog[]
 }
 

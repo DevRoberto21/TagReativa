@@ -6,6 +6,7 @@ import NewPet from './pages/NewPet';
 import EditPet from './pages/EditPet';
 import Profile from './pages/Profile';
 import ScanPage from './pages/ScanPage';
+import CallMeBotSetup from './pages/CallMeBotSetup';
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access_token');
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/pets/:id/editar" element={<PrivateRoute><EditPet /></PrivateRoute>} />
         <Route path="/perfil" element={<PrivateRoute><Profile /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="/configurar-notificacao" element={<CallMeBotSetup />} />
       </Routes>
     </BrowserRouter>
   );
