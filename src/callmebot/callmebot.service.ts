@@ -12,7 +12,6 @@ export class CallMeBotService {
     const url = `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${encoded}&apikey=${apiKey}`;
 
     try {
-      console.log('[CALLMEBOT] URL:', url);
       const res = await fetch(url);
       const text = await res.text();
       console.log('[CALLMEBOT] status:', res.status, '| body:', text);

@@ -29,10 +29,7 @@ export default function ScanPage() {
   const { pet, owner } = result;
   const isLost = pet?.status === 'LOST';
   const hasPhoto = !!pet?.photoUrl;
-
-  const rawWhatsapp = owner?.whatsapp ? owner.whatsapp.replace(/\D/g, '') : '';
-  const whatsappNumber = rawWhatsapp.startsWith('55') ? rawWhatsapp : `55${rawWhatsapp}`;
-  const whatsappHref = `https://wa.me/${whatsappNumber}`;
+  const whatsappHref = owner?.whatsappHref ?? null;
 
   return (
     <div style={styles.page}>
@@ -89,7 +86,7 @@ export default function ScanPage() {
               {owner?.name && (
                 <p style={styles.ownerName}>Tutor: {owner.name}</p>
               )}
-              {rawWhatsapp ? (
+              {whatsappHref ? (
                 <a href={whatsappHref} target="_blank" rel="noopener noreferrer" style={styles.waButton}>
                   Contatar Tutor via WhatsApp
                 </a>

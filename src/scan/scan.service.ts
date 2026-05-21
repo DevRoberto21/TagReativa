@@ -12,10 +12,10 @@ export interface ScanDto {
   consentVersion: string;
 }
 
-interface IpApiResponse {
-  status: 'success' | 'fail';
-  lat?: number;
-  lon?: number;
+interface IpWhoResponse {
+  success: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
 @Injectable()
@@ -25,6 +25,12 @@ export class ScanService {
     private callMeBot: CallMeBotService,
   ) {}
 
+  private buildWhatsappHref(whatsapp: string): string {
+    const digits = whatsapp.replace(/\D/g, '');
+    const number = digits.startsWith('55') ? digits : `55${digits}`;
+    return `https://wa.me/${number}`;
+  }
+
   private async resolveLocationByIp(
     ip: string,
   ): Promise<{ latitude: number | null; longitude: number | null }> {
@@ -32,12 +38,10 @@ export class ScanService {
     if (privateIp.test(ip)) return { latitude: null, longitude: null };
 
     try {
-      const res = await fetch(
-        `http://ip-api.com/json/${ip}?fields=status,lat,lon`,
-      );
-      const data = (await res.json()) as IpApiResponse;
-      if (data.status === 'success' && data.lat != null && data.lon != null) {
-        return { latitude: data.lat, longitude: data.lon };
+      const res = await fetch(`https://ipwho.is/${ip}`);
+      const data = (await res.json()) as IpWhoResponse;
+      if (data.success && data.latitude != null && data.longitude != null) {
+        return { latitude: data.latitude, longitude: data.longitude };
       }
     } catch {
       // falha silenciosa
@@ -116,7 +120,10 @@ export class ScanService {
       },
       owner: {
         name: pet.status === 'LOST' ? pet.owner.name : null,
-        whatsapp: pet.status === 'LOST' ? pet.owner.whatsapp : null,
+        whatsappHref:
+          pet.status === 'LOST' && pet.owner.whatsapp
+            ? this.buildWhatsappHref(pet.owner.whatsapp)
+            : null,
       },
     };
   }

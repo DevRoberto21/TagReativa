@@ -10,9 +10,12 @@ import { JwtStrategy } from './jwt.strategy';
   imports: [
     UsersModule,
     PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET ?? 'dev_secret',
-      signOptions: { expiresIn: '7d' },
+    JwtModule.registerAsync({
+      useFactory: () => {
+        const secret = process.env.JWT_SECRET;
+        if (!secret) throw new Error('FATAL: JWT_SECRET não definido.');
+        return { secret, signOptions: { expiresIn: '7d' } };
+      },
     }),
   ],
   providers: [AuthService, JwtStrategy],

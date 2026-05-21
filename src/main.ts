@@ -4,29 +4,22 @@ import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const { default: helmet } = await import('helmet');
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  app.use(helmet());
+
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+
   app.enableCors({
     origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
     credentials: true,
   });
 
-  const defaultPort = parseInt(process.env.PORT ?? '3000', 10);
-  try {
-    await app.listen(defaultPort);
-    console.log(`Server is running on http://localhost:${defaultPort}`);
-  } catch (error) {
-    const err = error as NodeJS.ErrnoException;
-    if (err?.code === 'EADDRINUSE') {
-      const fallbackPort = defaultPort + 1;
-      console.warn(
-        `Port ${defaultPort} is already in use. Starting on port ${fallbackPort} instead.`,
-      );
-      await app.listen(fallbackPort);
-      console.log(`Server is running on http://localhost:${fallbackPort}`);
-    } else {
-      throw error;
-    }
-  }
+  const port = parseInt(process.env.PORT ?? '3000', 10);
+  await app.listen(port);
+  console.log(`Server is running on port ${port}`);
 }
 
 void bootstrap();
