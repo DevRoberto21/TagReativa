@@ -24,10 +24,12 @@ export default function Register() {
       return;
     }
     try {
+      const digits = form.whatsapp.replace(/\D/g, '');
+      const normalized = digits.length === 11 ? digits.slice(0, 2) + digits.slice(3) : digits;
       await api.post('/users/register', {
         name: form.name,
         email: form.email,
-        whatsapp: '55' + form.whatsapp.replace(/\D/g, ''),
+        whatsapp: '55' + normalized,
         password: form.password,
         age,
       });
@@ -39,7 +41,6 @@ export default function Register() {
 
   return (
     <div style={styles.container}>
-      {/* Fundo Orgânico/Futurista Padronizado */}
       <svg style={styles.bgSvg} viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
         <path d="M-100,200 C100,250 150,450 50,600 C-50,750 -200,700 -250,550 Z" fill="url(#leafGrad)" opacity="0.4" filter="blur(40px)" />
         <path d="M1500,100 C1350,150 1200,300 1300,500 C1400,700 1550,650 1600,500 Z" fill="url(#leafGrad)" opacity="0.35" filter="blur(50px)" />
