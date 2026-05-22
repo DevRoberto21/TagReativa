@@ -14,8 +14,8 @@ export interface ScanDto {
 
 interface IpWhoResponse {
   success: boolean;
-  latitude?: number;
-  longitude?: number;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 @Injectable()
@@ -41,6 +41,7 @@ export class ScanService {
       const res = await fetch(`https://ipwho.is/${ip}`);
       const data = (await res.json()) as IpWhoResponse;
       if (data.success && data.latitude != null && data.longitude != null) {
+        console.log('[IPWHO] data:', JSON.stringify(data));
         return { latitude: data.latitude, longitude: data.longitude };
       }
     } catch (err) {
