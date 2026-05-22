@@ -43,8 +43,8 @@ export class ScanService {
       if (data.success && data.latitude != null && data.longitude != null) {
         return { latitude: data.latitude, longitude: data.longitude };
       }
-    } catch {
-      // falha silenciosa
+    } catch (err) {
+      console.error('[IPWHO] erro:', err);
     }
 
     return { latitude: null, longitude: null };
