@@ -40,8 +40,8 @@ export class ScanService {
     try {
       const res = await fetch(`https://ipwho.is/${ip}`);
       const data = (await res.json()) as IpWhoResponse;
+      console.log('[IPWHO] data:', JSON.stringify(data));
       if (data.success && data.latitude != null && data.longitude != null) {
-        console.log('[IPWHO] data:', JSON.stringify(data));
         return { latitude: data.latitude, longitude: data.longitude };
       }
     } catch (err) {
