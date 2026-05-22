@@ -21,6 +21,7 @@ export class ScanController {
       req.socket.remoteAddress ??
       'unknown';
 
+    console.log('[SCAN] ip:', ipAddress, '| x-forwarded-for:', req.headers['x-forwarded-for']);
     return this.scanService.processScan({
       petId,
       latitude: body.latitude,
