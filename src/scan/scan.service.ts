@@ -12,10 +12,10 @@ export interface ScanDto {
   consentVersion: string;
 }
 
-interface IpWhoResponse {
-  success: boolean;
-  latitude: number | null;
-  longitude: number | null;
+interface IpApiResponse {
+  status: string;
+  lat: number;
+  lon: number;
 }
 
 @Injectable()
@@ -38,14 +38,14 @@ export class ScanService {
     if (privateIp.test(ip)) return { latitude: null, longitude: null };
 
     try {
-      const res = await fetch(`https://ipwho.is/${ip}`);
-      const data = (await res.json()) as IpWhoResponse;
-      console.log('[IPWHO] data:', JSON.stringify(data));
-      if (data.success && data.latitude != null && data.longitude != null) {
-        return { latitude: data.latitude, longitude: data.longitude };
-      }
+      const res = await fetch(`http://ip-api.com/json/${ip}`);
+      const data = (await res.json()) as IpApiResponse;
+
+      if (data.status !== 'success') return { latitude: null, longitude: null };
+
+      return { latitude: data.lat, longitude: data.lon };
     } catch (err) {
-      console.error('[IPWHO] erro:', err);
+      console.error('[IP-API] erro:', err);
     }
 
     return { latitude: null, longitude: null };
