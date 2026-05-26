@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
+import PageContainer from '../components/PageContainer';
 
 export default function CallMeBotSetup() {
     const [apiKey, setApiKey] = useState('');
@@ -29,7 +30,7 @@ export default function CallMeBotSetup() {
     }
 
     return (
-        <div style={styles.container}>
+        <PageContainer style={styles.container}>
             {/* Fundo Orgânico/Futurista Padronizado */}
             <svg style={styles.bgSvg} viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
                 <path d="M-100,200 C100,250 150,450 50,600 C-50,750 -200,700 -250,550 Z" fill="url(#leafGrad)" opacity="0.4" filter="blur(40px)" />
@@ -89,12 +90,12 @@ export default function CallMeBotSetup() {
                     )}
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 }
 
 const styles = {
-    container: { minHeight: '100vh', position: 'relative', overflowX: 'hidden', background: 'linear-gradient(135deg, #F0F4F2 0%, #E2ECE9 50%, #D4E5E0 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' },
+    container: { position: 'relative', overflowX: 'hidden', background: 'linear-gradient(135deg, #F0F4F2 0%, #E2ECE9 50%, #D4E5E0 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' },
     bgSvg: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 },
     contentWrapper: { position: 'relative', zIndex: 2, padding: '32px 16px', width: '100%', maxWidth: '480px', boxSizing: 'border-box' },
     header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' },

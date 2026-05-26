@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { useScan } from '../hooks/useScan';
+import PageContainer from '../components/PageContainer';
 
 export default function ScanPage() {
   const { petId } = useParams();
@@ -7,20 +8,20 @@ export default function ScanPage() {
 
   if (loading) {
     return (
-      <div style={styles.centered}>
+      <PageContainer style={styles.centered}>
         <div style={styles.spinner}></div>
         <p style={styles.muted}>Rastreando conexões e registrando scan...</p>
-      </div>
+      </PageContainer>
     );
   }
 
   if (error) {
     return (
-      <div style={styles.centered}>
+      <PageContainer style={styles.centered}>
         <div style={styles.errorCard}>
           <p style={{ color: '#E63946', fontWeight: 'bold', margin: 0 }}>{error}</p>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -32,7 +33,7 @@ export default function ScanPage() {
   const whatsappHref = owner?.whatsappHref ?? null;
 
   return (
-    <div style={styles.page}>
+    <PageContainer style={styles.page}>
       <svg style={styles.bgSvg} viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
         <path d="M-100,200 C100,250 150,450 50,600 C-50,750 -200,700 -250,550 Z" fill="url(#leafGrad)" opacity="0.4" filter="blur(40px)" />
         <path d="M1500,100 C1350,150 1200,300 1300,500 C1400,700 1550,650 1600,500 Z" fill="url(#leafGrad)" opacity="0.35" filter="blur(50px)" />
@@ -102,16 +103,16 @@ export default function ScanPage() {
           )}
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }
 
 const styles = {
-  page: { minHeight: '100vh', position: 'relative', overflowX: 'hidden', background: 'linear-gradient(135deg, #F0F4F2 0%, #E2ECE9 50%, #D4E5E0 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' },
+  page: { position: 'relative', overflowX: 'hidden', background: 'linear-gradient(135deg, #F0F4F2 0%, #E2ECE9 50%, #D4E5E0 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' },
   bgSvg: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 },
   contentWrapper: { position: 'relative', zIndex: 2, padding: '24px 16px', width: '100%', display: 'flex', justifyContent: 'center' },
   card: { background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRadius: '24px', padding: '40px 32px', width: '100%', maxWidth: '400px', boxSizing: 'border-box', boxShadow: '0 12px 40px rgba(45, 106, 79, 0.05)', border: '1px solid rgba(255, 255, 255, 0.6)', textAlign: 'center' },
-  centered: { minHeight: '100vh', background: '#F4F7F6', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' },
+  centered: { background: '#F4F7F6', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' },
   spinner: { width: 28, height: 28, border: '3px solid #D8EADF', borderTop: '3px solid #2D6A4F', borderRadius: '50%', animation: 'spin 1s linear infinite' },
   errorCard: { background: '#FFF5F5', border: '1px solid #FED7D7', borderRadius: '16px', padding: '16px 24px' },
   muted: { color: '#52796F', fontSize: 14 },

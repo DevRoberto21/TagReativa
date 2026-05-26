@@ -4,6 +4,7 @@ import api from '../services/api';
 import { useQrModal } from '../hooks/useQrModal';
 import QrModal from '../components/QrModal';
 import ConfirmModal from '../components/ConfirmModal';
+import PageContainer from '../components/PageContainer';
 
 function PetAvatar({ pet }) {
   if (pet.photoUrl) {
@@ -65,7 +66,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={styles.container}>
+    <PageContainer style={styles.container}>
       <svg style={styles.bgSvg} viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
         <path d="M-100,200 C100,250 150,450 50,600 C-50,750 -200,700 -250,550 Z" fill="url(#leafGrad)" opacity="0.4" filter="blur(40px)" />
         <path d="M1500,100 C1350,150 1200,300 1300,500 C1400,700 1550,650 1600,500 Z" fill="url(#leafGrad)" opacity="0.35" filter="blur(50px)" />
@@ -161,12 +162,12 @@ export default function Dashboard() {
         onDownload={downloadSvg}
         onClose={closeQr}
       />
-    </div>
+    </PageContainer>
   );
 }
 
 const styles = {
-  container: { minHeight: '100vh', position: 'relative', overflowX: 'hidden', background: 'linear-gradient(135deg, #F0F4F2 0%, #E2ECE9 50%, #D4E5E0 100%)', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' },
+  container: { position: 'relative', overflowX: 'hidden', background: 'linear-gradient(135deg, #F0F4F2 0%, #E2ECE9 50%, #D4E5E0 100%)', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' },
   bgSvg: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 },
   contentWrapper: { position: 'relative', zIndex: 2, padding: '32px 20px 120px', maxWidth: '600px', margin: '0 auto' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' },
