@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { randomBytes, createHash } from 'crypto';
+import { randomBytes, randomInt, createHash } from 'crypto';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
@@ -8,10 +8,14 @@ import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const FORGOT_PASSWORD_GENERIC_MESSAGE =
   'Se esse e-mail existir em nossa base, enviamos um link de recuperação.';
+const TWO_FACTOR_CODE_TTL_MS = 5 * 60 * 1000;
+const MAX_TWO_FACTOR_ATTEMPTS = 5;
+const TWO_FACTOR_GENERIC_ERROR = 'Código inválido ou expirado.';
 
 @Injectable()
 export class AuthService {
@@ -22,12 +26,116 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
-  async login(dto: LoginDto) {
+  async login(
+    dto: LoginDto,
+  ): Promise<{ access_token: string } | { twoFactorRequired: true; loginToken: string }> {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) throw new UnauthorizedException('Credenciais inválidas.');
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Credenciais inválidas.');
+
+    if (user.twoFactorEnabled) {
+      const loginToken = await this.issueTwoFactorCode(user.id, user.email, true);
+      return { twoFactorRequired: true, loginToken: loginToken! };
+    }
+
+    const payload = { sub: user.id, email: user.email };
+    return { access_token: this.jwtService.sign(payload) };
+  }
+
+  private async issueTwoFactorCode(
+    userId: string,
+    email: string,
+    forLogin: boolean,
+  ): Promise<string | null> {
+    await this.prisma.twoFactorCode.deleteMany({
+      where: {
+        userId,
+        loginTokenHash: forLogin ? { not: null } : null,
+      },
+    });
+
+    const code = randomInt(100000, 1000000).toString();
+    const codeHash = createHash('sha256').update(code).digest('hex');
+    const expiresAt = new Date(Date.now() + TWO_FACTOR_CODE_TTL_MS);
+
+    let loginToken: string | null = null;
+    let loginTokenHash: string | null = null;
+    if (forLogin) {
+      loginToken = randomBytes(32).toString('hex');
+      loginTokenHash = createHash('sha256').update(loginToken).digest('hex');
+    }
+
+    await this.prisma.twoFactorCode.create({
+      data: { userId, loginTokenHash, codeHash, expiresAt },
+    });
+
+    void this.emailService
+      .send(
+        email,
+        'Código de verificação - TagReativa',
+        `Seu código de verificação é: ${code}\n\nVálido por 5 minutos. Se você não solicitou isso, ignore este e-mail.`,
+      )
+      .then((delivered) => {
+        if (!delivered) {
+          console.error(
+            '[AUTH] Falha ao enviar e-mail de código de verificação para',
+            email,
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        console.error(
+          '[AUTH] Erro inesperado no envio do e-mail de código de verificação:',
+          err,
+        );
+      });
+
+    return loginToken;
+  }
+
+  async verifyTwoFactorLogin(
+    dto: VerifyTwoFactorDto,
+  ): Promise<{ access_token: string }> {
+    const loginTokenHash = createHash('sha256')
+      .update(dto.loginToken)
+      .digest('hex');
+
+    const record = await this.prisma.twoFactorCode.findUnique({
+      where: { loginTokenHash },
+    });
+
+    const invalid =
+      !record ||
+      record.usedAt !== null ||
+      record.expiresAt < new Date() ||
+      record.attempts >= MAX_TWO_FACTOR_ATTEMPTS;
+
+    if (invalid) {
+      throw new BadRequestException(TWO_FACTOR_GENERIC_ERROR);
+    }
+
+    const codeHash = createHash('sha256').update(dto.code).digest('hex');
+    if (codeHash !== record.codeHash) {
+      await this.prisma.twoFactorCode.update({
+        where: { id: record.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new BadRequestException(TWO_FACTOR_GENERIC_ERROR);
+    }
+
+    await this.prisma.twoFactorCode.update({
+      where: { id: record.id },
+      data: { usedAt: new Date() },
+    });
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: record.userId },
+    });
+    if (!user) {
+      throw new BadRequestException(TWO_FACTOR_GENERIC_ERROR);
+    }
 
     const payload = { sub: user.id, email: user.email };
     return { access_token: this.jwtService.sign(payload) };

@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -12,6 +13,12 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('login/verify-2fa')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  verifyTwoFactorLogin(@Body() dto: VerifyTwoFactorDto) {
+    return this.authService.verifyTwoFactorLogin(dto);
   }
 
   @Post('forgot-password')

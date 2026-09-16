@@ -4,6 +4,8 @@ import { UsersService } from '../users/users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -15,9 +17,17 @@ describe('AuthService', () => {
       findUnique: jest.Mock;
       update: jest.Mock;
     };
-    user: { update: jest.Mock };
+    twoFactorCode: {
+      deleteMany: jest.Mock;
+      create: jest.Mock;
+      findUnique: jest.Mock;
+      findFirst: jest.Mock;
+      update: jest.Mock;
+    };
+    user: { update: jest.Mock; findUnique: jest.Mock };
   };
   let emailService: { send: jest.Mock };
+  let jwtService: { sign: jest.Mock };
 
   const existingUser = {
     id: 'user-1',
@@ -25,6 +35,14 @@ describe('AuthService', () => {
     email: 'owner@example.com',
     passwordHash: 'hash',
     whatsapp: '5511999999999',
+    twoFactorEnabled: false,
+  };
+
+  const twoFactorUser = {
+    ...existingUser,
+    id: 'user-2',
+    email: 'twofactor@example.com',
+    twoFactorEnabled: true,
   };
 
   beforeEach(async () => {
@@ -36,9 +54,17 @@ describe('AuthService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
       },
-      user: { update: jest.fn() },
+      twoFactorCode: {
+        deleteMany: jest.fn(),
+        create: jest.fn(),
+        findUnique: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
+      },
+      user: { update: jest.fn(), findUnique: jest.fn() },
     };
     emailService = { send: jest.fn() };
+    jwtService = { sign: jest.fn().mockReturnValue('signed-jwt') };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -46,7 +72,7 @@ describe('AuthService', () => {
         { provide: UsersService, useValue: usersService },
         { provide: PrismaService, useValue: prisma },
         { provide: EmailService, useValue: emailService },
-        { provide: JwtService, useValue: { sign: jest.fn() } },
+        { provide: JwtService, useValue: jwtService },
       ],
     }).compile();
 
@@ -185,6 +211,158 @@ describe('AuthService', () => {
         service.resetPassword({ token: 'used', newPassword: 'newpass123' }),
       ).rejects.toThrow('Link inválido ou expirado.');
       expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('login', () => {
+    it('returns an access token directly when 2FA is disabled', async () => {
+      const passwordHash = await bcrypt.hash('correct-password', 10);
+      usersService.findByEmail.mockResolvedValue({
+        ...existingUser,
+        passwordHash,
+      });
+
+      const result = await service.login({
+        email: 'owner@example.com',
+        password: 'correct-password',
+      });
+
+      expect(result).toEqual({ access_token: 'signed-jwt' });
+      expect(prisma.twoFactorCode.create).not.toHaveBeenCalled();
+      expect(emailService.send).not.toHaveBeenCalled();
+    });
+
+    it('issues a 2FA code and withholds the access token when 2FA is enabled', async () => {
+      const passwordHash = await bcrypt.hash('correct-password', 10);
+      usersService.findByEmail.mockResolvedValue({
+        ...twoFactorUser,
+        passwordHash,
+      });
+      prisma.twoFactorCode.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.twoFactorCode.create.mockResolvedValue({});
+      emailService.send.mockResolvedValue(true);
+
+      const result = await service.login({
+        email: 'twofactor@example.com',
+        password: 'correct-password',
+      });
+
+      expect(result).toEqual({
+        twoFactorRequired: true,
+        loginToken: expect.any(String),
+      });
+      expect((result as { loginToken: string }).loginToken).toHaveLength(64);
+
+      expect(prisma.twoFactorCode.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-2', loginTokenHash: { not: null } },
+      });
+      expect(prisma.twoFactorCode.create).toHaveBeenCalledTimes(1);
+      const createArgs = prisma.twoFactorCode.create.mock.calls[0][0];
+      expect(createArgs.data.userId).toBe('user-2');
+      expect(typeof createArgs.data.loginTokenHash).toBe('string');
+      expect(createArgs.data.loginTokenHash).toHaveLength(64);
+      expect(typeof createArgs.data.codeHash).toBe('string');
+      expect(createArgs.data.codeHash).toHaveLength(64);
+
+      expect(emailService.send).toHaveBeenCalledTimes(1);
+      const [to, subject, message] = emailService.send.mock.calls[0];
+      expect(to).toBe('twofactor@example.com');
+      expect(subject).toMatch(/verificação/i);
+      expect(message).toMatch(/\d{6}/);
+    });
+
+    it('rejects an incorrect password without issuing a 2FA code, even when 2FA is enabled', async () => {
+      const passwordHash = await bcrypt.hash('correct-password', 10);
+      usersService.findByEmail.mockResolvedValue({
+        ...twoFactorUser,
+        passwordHash,
+      });
+
+      await expect(
+        service.login({ email: 'twofactor@example.com', password: 'wrong' }),
+      ).rejects.toThrow('Credenciais inválidas.');
+      expect(prisma.twoFactorCode.create).not.toHaveBeenCalled();
+      expect(emailService.send).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('verifyTwoFactorLogin', () => {
+    const pendingCode = {
+      id: 'tfc-1',
+      userId: 'user-2',
+      loginTokenHash: '1'.repeat(64),
+      codeHash: '',
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      attempts: 0,
+      usedAt: null as Date | null,
+      createdAt: new Date(),
+    };
+
+    it('returns an access token for a valid, unexpired, unused code', async () => {
+      const rightCode = '123456';
+      const codeHash = createHash('sha256').update(rightCode).digest('hex');
+      prisma.twoFactorCode.findUnique.mockResolvedValue({
+        ...pendingCode,
+        codeHash,
+      });
+      prisma.twoFactorCode.update.mockResolvedValue({});
+      prisma.user.findUnique.mockResolvedValue(twoFactorUser);
+
+      const result = await service.verifyTwoFactorLogin({
+        loginToken: 'raw-login-token',
+        code: rightCode,
+      });
+
+      expect(result).toEqual({ access_token: 'signed-jwt' });
+      expect(prisma.twoFactorCode.update).toHaveBeenCalledWith({
+        where: { id: 'tfc-1' },
+        data: { usedAt: expect.any(Date) },
+      });
+    });
+
+    it('throws a generic error and increments attempts for a wrong code', async () => {
+      const codeHash = createHash('sha256').update('999999').digest('hex');
+      prisma.twoFactorCode.findUnique.mockResolvedValue({
+        ...pendingCode,
+        codeHash,
+      });
+      prisma.twoFactorCode.update.mockResolvedValue({});
+
+      await expect(
+        service.verifyTwoFactorLogin({ loginToken: 'raw', code: '111111' }),
+      ).rejects.toThrow('Código inválido ou expirado.');
+
+      expect(prisma.twoFactorCode.update).toHaveBeenCalledWith({
+        where: { id: 'tfc-1' },
+        data: { attempts: { increment: 1 } },
+      });
+    });
+
+    it('throws a generic error for an expired code', async () => {
+      prisma.twoFactorCode.findUnique.mockResolvedValue({
+        ...pendingCode,
+        expiresAt: new Date(Date.now() - 1000),
+      });
+
+      await expect(
+        service.verifyTwoFactorLogin({ loginToken: 'raw', code: '123456' }),
+      ).rejects.toThrow('Código inválido ou expirado.');
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('throws a generic error once attempts reach the limit, even with the right code', async () => {
+      const rightCode = '123456';
+      const codeHash = createHash('sha256').update(rightCode).digest('hex');
+      prisma.twoFactorCode.findUnique.mockResolvedValue({
+        ...pendingCode,
+        codeHash,
+        attempts: 5,
+      });
+
+      await expect(
+        service.verifyTwoFactorLogin({ loginToken: 'raw', code: rightCode }),
+      ).rejects.toThrow('Código inválido ou expirado.');
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
     });
   });
 });
