@@ -77,6 +77,7 @@ export default function Login() {
           </form>
 
           <Link to="/register" style={styles.link}>Solicitar nova credencial — Criar Conta</Link>
+          <Link to="/esqueci-senha" style={styles.link}>Esqueci minha senha</Link>
         </div>
       </div>
     </PageContainer>
