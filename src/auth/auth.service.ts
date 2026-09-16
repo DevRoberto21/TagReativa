@@ -64,6 +64,12 @@ export class AuthService {
             user.email,
           );
         }
+      })
+      .catch((err: unknown) => {
+        console.error(
+          '[AUTH] Erro inesperado no envio do e-mail de recuperação de senha:',
+          err,
+        );
       });
 
     return { message: FORGOT_PASSWORD_GENERIC_MESSAGE };

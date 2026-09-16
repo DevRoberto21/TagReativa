@@ -86,6 +86,22 @@ describe('AuthService', () => {
       });
     });
 
+    it('does not wait for the email send to complete before returning (timing side-channel guard)', async () => {
+      usersService.findByEmail.mockResolvedValue(existingUser);
+      prisma.passwordResetToken.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.passwordResetToken.create.mockResolvedValue({});
+      emailService.send.mockReturnValue(new Promise(() => {})); // never resolves
+
+      const result = await service.forgotPassword({
+        email: 'owner@example.com',
+      });
+
+      expect(result).toEqual({
+        message:
+          'Se esse e-mail existir em nossa base, enviamos um link de recuperação.',
+      });
+    });
+
     it('does nothing but still returns the generic message when the email does not exist', async () => {
       usersService.findByEmail.mockResolvedValue(null);
 
