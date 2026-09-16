@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes, createHash } from 'crypto';
 import { UsersService } from '../users/users.service';
@@ -7,6 +7,7 @@ import { EmailService } from '../email/email.service';
 import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const FORGOT_PASSWORD_GENERIC_MESSAGE =
@@ -66,5 +67,40 @@ export class AuthService {
       });
 
     return { message: FORGOT_PASSWORD_GENERIC_MESSAGE };
+  }
+
+  async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
+    const tokenHash = createHash('sha256').update(dto.token).digest('hex');
+
+    const resetToken = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+    });
+
+    const invalid =
+      !resetToken ||
+      resetToken.usedAt !== null ||
+      resetToken.expiresAt < new Date();
+
+    if (invalid) {
+      throw new BadRequestException('Link inválido ou expirado.');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: resetToken.userId },
+      data: { passwordHash },
+    });
+
+    await this.prisma.passwordResetToken.update({
+      where: { id: resetToken.id },
+      data: { usedAt: new Date() },
+    });
+
+    await this.prisma.passwordResetToken.deleteMany({
+      where: { userId: resetToken.userId, id: { not: resetToken.id } },
+    });
+
+    return { message: 'Senha redefinida com sucesso.' };
   }
 }

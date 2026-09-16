@@ -102,4 +102,73 @@ describe('AuthService', () => {
       });
     });
   });
+
+  describe('resetPassword', () => {
+    const validToken = {
+      id: 'reset-1',
+      userId: 'user-1',
+      tokenHash: '0'.repeat(64), // exact value is irrelevant: resetPassword() never reads this field back, it only computes its own hash from the input token to build the findUnique lookup
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      usedAt: null as Date | null,
+      createdAt: new Date(),
+    };
+
+    it('updates the password and marks the token used for a valid token', async () => {
+      prisma.passwordResetToken.findUnique.mockResolvedValue(validToken);
+      prisma.user.update.mockResolvedValue({});
+      prisma.passwordResetToken.update.mockResolvedValue({});
+      prisma.passwordResetToken.deleteMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.resetPassword({
+        token: 'raw-token-value',
+        newPassword: 'newpass123',
+      });
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { passwordHash: expect.any(String) },
+      });
+      expect(prisma.passwordResetToken.update).toHaveBeenCalledWith({
+        where: { id: 'reset-1' },
+        data: { usedAt: expect.any(Date) },
+      });
+      expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1', id: { not: 'reset-1' } },
+      });
+      expect(result).toEqual({ message: 'Senha redefinida com sucesso.' });
+    });
+
+    it('throws a generic error for an unknown token', async () => {
+      prisma.passwordResetToken.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.resetPassword({ token: 'bogus', newPassword: 'newpass123' }),
+      ).rejects.toThrow('Link inválido ou expirado.');
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('throws a generic error for an expired token', async () => {
+      prisma.passwordResetToken.findUnique.mockResolvedValue({
+        ...validToken,
+        expiresAt: new Date(Date.now() - 1000),
+      });
+
+      await expect(
+        service.resetPassword({ token: 'expired', newPassword: 'newpass123' }),
+      ).rejects.toThrow('Link inválido ou expirado.');
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('throws a generic error for an already-used token', async () => {
+      prisma.passwordResetToken.findUnique.mockResolvedValue({
+        ...validToken,
+        usedAt: new Date(),
+      });
+
+      await expect(
+        service.resetPassword({ token: 'used', newPassword: 'newpass123' }),
+      ).rejects.toThrow('Link inválido ou expirado.');
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
 });
