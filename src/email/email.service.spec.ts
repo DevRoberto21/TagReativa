@@ -2,15 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EmailService } from './email.service';
 
 const sendTransacEmail = jest.fn();
-const setApiKey = jest.fn();
 
 jest.mock('@getbrevo/brevo', () => ({
-  TransactionalEmailsApi: jest.fn().mockImplementation(() => ({
-    setApiKey,
-    sendTransacEmail,
+  BrevoClient: jest.fn().mockImplementation(() => ({
+    transactionalEmails: { sendTransacEmail },
   })),
-  TransactionalEmailsApiApiKeys: { apiKey: 'apiKey' },
-  SendSmtpEmail: jest.fn().mockImplementation(() => ({})),
 }));
 
 describe('EmailService', () => {
