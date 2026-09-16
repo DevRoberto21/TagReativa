@@ -61,14 +61,16 @@ model ScanLog {
   consentGranted Boolean
   consentVersion String
   timestamp      DateTime       @default(now())
-  notification   Notification?
+  notifications  Notification[]
 }
 
 model Notification {
   id        String              @id @default(uuid())
-  scanLogId String              @unique
+  scanLogId String
   scanLog   ScanLog             @relation(fields: [scanLogId], references: [id], onDelete: Cascade)
   channel   NotificationChannel
   sentAt    DateTime            @default(now())
   delivered Boolean             @default(false)
+
+  @@unique([scanLogId, channel])
 }
