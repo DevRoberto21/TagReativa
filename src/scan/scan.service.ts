@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CallMeBotService } from '../callmebot/callmebot.service';
+import { EmailService } from '../email/email.service';
 import { LocationSource, NotificationChannel } from '@prisma/client';
 
 export interface ScanDto {
@@ -23,6 +24,7 @@ export class ScanService {
   constructor(
     private prisma: PrismaService,
     private callMeBot: CallMeBotService,
+    private emailService: EmailService,
   ) {}
 
   private buildWhatsappHref(whatsapp: string): string {
@@ -49,6 +51,64 @@ export class ScanService {
     }
 
     return { latitude: null, longitude: null };
+  }
+
+  private async persistNotification(
+    scanLogId: string,
+    channel: NotificationChannel,
+    delivered: boolean,
+  ): Promise<void> {
+    try {
+      await this.prisma.notification.create({
+        data: { scanLogId, channel, delivered },
+      });
+    } catch (err: unknown) {
+      console.error('[Notification] Falha ao persistir registro:', err);
+    }
+  }
+
+  private async notifyWhatsapp(
+    scanLogId: string,
+    whatsapp: string,
+    apiKey: string,
+    message: string,
+  ): Promise<void> {
+    let delivered: boolean;
+    try {
+      delivered = await this.callMeBot.send(whatsapp, apiKey, message);
+    } catch (err: unknown) {
+      console.error('[Notification] Falha ao enviar WhatsApp:', err);
+      return;
+    }
+    await this.persistNotification(
+      scanLogId,
+      NotificationChannel.WHATSAPP,
+      delivered,
+    );
+  }
+
+  private async notifyEmail(
+    scanLogId: string,
+    to: string,
+    petName: string,
+    message: string,
+  ): Promise<void> {
+    let delivered: boolean;
+    try {
+      delivered = await this.emailService.send(
+        to,
+        `Seu pet ${petName} foi encontrado!`,
+        message,
+      );
+    } catch (err: unknown) {
+      console.error('[Notification] Falha ao enviar Email:', err);
+      return;
+    }
+    await this.persistNotification(
+      scanLogId,
+      NotificationChannel.EMAIL,
+      delivered,
+    );
   }
 
   async processScan(dto: ScanDto) {
@@ -83,7 +143,7 @@ export class ScanService {
       },
     });
 
-    if (pet.status === 'LOST' && pet.owner.callMeBotApiKey) {
+    if (pet.status === 'LOST') {
       const hasLocation = latitude != null && longitude != null;
       const isGps = locationSource === LocationSource.GPS;
       const message = hasLocation
@@ -92,23 +152,24 @@ export class ScanService {
           : `Seu pet ${pet.name} foi encontrado! O resgatador negou o GPS. Endereço baseado no IP (pode estar impreciso): https://maps.google.com/?q=${latitude},${longitude}`
         : `Seu pet ${pet.name} foi encontrado! Não foi possível obter localização.`;
 
-      const delivered = await this.callMeBot.send(
-        pet.owner.whatsapp,
-        pet.owner.callMeBotApiKey,
-        message,
+      const dispatches: Promise<void>[] = [];
+
+      if (pet.owner.callMeBotApiKey) {
+        dispatches.push(
+          this.notifyWhatsapp(
+            scanLog.id,
+            pet.owner.whatsapp,
+            pet.owner.callMeBotApiKey,
+            message,
+          ),
+        );
+      }
+
+      dispatches.push(
+        this.notifyEmail(scanLog.id, pet.owner.email, pet.name, message),
       );
 
-      try {
-        await this.prisma.notification.create({
-          data: {
-            scanLogId: scanLog.id,
-            channel: NotificationChannel.WHATSAPP,
-            delivered,
-          },
-        });
-      } catch (err: unknown) {
-        console.error('[Notification] Falha ao persistir registro:', err);
-      }
+      await Promise.allSettled(dispatches);
     }
 
     return {
