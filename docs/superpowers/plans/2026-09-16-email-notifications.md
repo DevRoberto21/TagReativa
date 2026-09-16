@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-14-email-notifications-design.md`
 
+> **Correction (post-implementation):** The Task 2 reference code below for `email.service.ts` and its spec (targeting `TransactionalEmailsApi`/`SendSmtpEmail`) does not match the installed `@getbrevo/brevo@6.0.3` SDK and was superseded by commit `5ed78f3`, which rewrote the service around `BrevoClient`. Do not replay the reference code below as-is; use `src/email/email.service.ts` and `src/email/email.service.spec.ts` on this branch as the correct implementation.
+
 ## Global Constraints
 
 - Email provider is Brevo, using single-sender verification (no custom domain yet) — per spec, this is correct for now; do not substitute Resend or add domain/DKIM setup.

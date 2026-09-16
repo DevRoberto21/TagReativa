@@ -6,8 +6,16 @@ export class EmailService {
   private readonly client: BrevoClient;
 
   constructor() {
+    const apiKey = process.env.BREVO_API_KEY;
+    if (!apiKey) throw new Error('FATAL: BREVO_API_KEY não definido.');
+    if (!process.env.BREVO_SENDER_EMAIL) {
+      throw new Error('FATAL: BREVO_SENDER_EMAIL não definido.');
+    }
+
     this.client = new BrevoClient({
-      apiKey: process.env.BREVO_API_KEY ?? '',
+      apiKey,
+      timeoutInSeconds: 10,
+      maxRetries: 1,
     });
   }
 
