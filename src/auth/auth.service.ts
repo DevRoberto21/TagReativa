@@ -50,11 +50,20 @@ export class AuthService {
 
     const resetUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/redefinir-senha?token=${rawToken}`;
 
-    await this.emailService.send(
-      user.email,
-      'Recuperação de senha - TagReativa',
-      `Recebemos um pedido para redefinir a senha da sua conta TagReativa. Acesse o link abaixo para criar uma nova senha (válido por 1 hora):\n\n${resetUrl}\n\nSe você não solicitou isso, ignore este e-mail.`,
-    );
+    void this.emailService
+      .send(
+        user.email,
+        'Recuperação de senha - TagReativa',
+        `Recebemos um pedido para redefinir a senha da sua conta TagReativa. Acesse o link abaixo para criar uma nova senha (válido por 1 hora):\n\n${resetUrl}\n\nSe você não solicitou isso, ignore este e-mail.`,
+      )
+      .then((delivered) => {
+        if (!delivered) {
+          console.error(
+            '[AUTH] Falha ao enviar e-mail de recuperação de senha para',
+            user.email,
+          );
+        }
+      });
 
     return { message: FORGOT_PASSWORD_GENERIC_MESSAGE };
   }
