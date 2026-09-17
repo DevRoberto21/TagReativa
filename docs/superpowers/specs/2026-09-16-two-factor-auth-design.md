@@ -153,7 +153,15 @@ imediatamente.") to the user's address, responds
 - The 5-attempt lockout on `TwoFactorCode.attempts` is defense-in-depth
   alongside the rate limit: even a very fast attacker gets at most 5
   guesses per issued code before it self-invalidates, against a
-  1,000,000-value space, well within the 5-minute expiry window.
+  900,000-value space (`randomInt(100000, 1000000)` yields 100000-999999
+  inclusive), well within the 5-minute expiry window.
+  **Correction (post-implementation, final review):** the check-and-increment
+  on `attempts` must be atomic (increment first, gate on the returned
+  value) — a non-atomic read-then-increment lets concurrent requests
+  against the same code all read the same `attempts` count and all get a
+  guess, weakening this guarantee under a distributed/parallel attack.
+  Fixed in the implementation; noted here so this isn't lost if the spec
+  is ever replayed.
 - All email sends (login code, enable-confirmation code, disable
   notice) are fire-and-forget with `.then()` (log delivery failure) and
   `.catch()` (log unexpected rejection) — never awaited inline, matching
@@ -243,3 +251,10 @@ recovery) with new `describe` blocks, mocking `PrismaService`,
 - Mandatory 2FA (admin-enforced or for specific account types).
 - A "trusted device" / remember-this-browser mechanism to skip 2FA on
   recognized devices.
+- Session invalidation when 2FA is enabled. Today, enabling 2FA does not
+  revoke already-issued JWTs (7-day expiry, no revocation list) — a token
+  stolen before 2FA was turned on stays valid regardless. Inherent to the
+  existing stateless-JWT design, correctly out of this spec's scope, but
+  worth calling out: "I think my account was compromised, let me turn on
+  2FA" is the single most likely reason a user enables this feature, and
+  this gap means it doesn't fully cover that case.
