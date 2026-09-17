@@ -11,6 +11,11 @@ export default function Profile() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [twoFactorStep, setTwoFactorStep] = useState('idle');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [twoFactorPassword, setTwoFactorPassword] = useState('');
+  const [twoFactorMessage, setTwoFactorMessage] = useState('');
 
   useEffect(() => {
     api.get('/users/me')
@@ -18,6 +23,7 @@ export default function Profile() {
         setName(r.data.name);
         setWhatsapp(r.data.whatsapp);
         setAge(r.data.age ?? '');
+        setTwoFactorEnabled(r.data.twoFactorEnabled);
       })
       .catch(() => setError('Erro ao carregar perfil do tutor.'));
   }, []);
@@ -51,6 +57,42 @@ export default function Profile() {
     } catch {
       setError('Erro ao revogar conta.');
       setDeleting(false);
+    }
+  }
+
+  async function handleEnableTwoFactor() {
+    setTwoFactorMessage('');
+    try {
+      await api.post('/auth/2fa/enable');
+      setTwoFactorStep('confirming');
+    } catch {
+      setTwoFactorMessage('Erro ao solicitar código de confirmação.');
+    }
+  }
+
+  async function handleConfirmTwoFactor(e) {
+    e.preventDefault();
+    setTwoFactorMessage('');
+    try {
+      await api.post('/auth/2fa/confirm', { code: twoFactorCode });
+      setTwoFactorEnabled(true);
+      setTwoFactorStep('idle');
+      setTwoFactorCode('');
+    } catch {
+      setTwoFactorMessage('Código inválido ou expirado.');
+    }
+  }
+
+  async function handleDisableTwoFactor(e) {
+    e.preventDefault();
+    setTwoFactorMessage('');
+    try {
+      await api.post('/auth/2fa/disable', { password: twoFactorPassword });
+      setTwoFactorEnabled(false);
+      setTwoFactorStep('idle');
+      setTwoFactorPassword('');
+    } catch {
+      setTwoFactorMessage('Senha incorreta.');
     }
   }
 
@@ -97,6 +139,59 @@ export default function Profile() {
             Canais de Notificação WhatsApp
           </button>
 
+          <div style={styles.twoFactorSection}>
+            <div style={styles.twoFactorHeader}>
+              <span style={styles.label}>Autenticação em Dois Fatores</span>
+              <span style={twoFactorEnabled ? styles.badgeOn : styles.badgeOff}>
+                {twoFactorEnabled ? 'Ativado' : 'Desativado'}
+              </span>
+            </div>
+
+            {twoFactorMessage && <p style={styles.error}>{twoFactorMessage}</p>}
+
+            {!twoFactorEnabled && twoFactorStep === 'idle' && (
+              <button type="button" onClick={handleEnableTwoFactor} style={styles.notifButton}>
+                Ativar 2FA
+              </button>
+            )}
+
+            {!twoFactorEnabled && twoFactorStep === 'confirming' && (
+              <form onSubmit={handleConfirmTwoFactor} style={styles.form}>
+                <input
+                  style={styles.input}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Código de 6 dígitos"
+                  value={twoFactorCode}
+                  onChange={e => setTwoFactorCode(e.target.value)}
+                  maxLength={6}
+                  required
+                />
+                <button style={styles.button} type="submit">Confirmar Ativação</button>
+              </form>
+            )}
+
+            {twoFactorEnabled && twoFactorStep === 'idle' && (
+              <button type="button" onClick={() => setTwoFactorStep('disabling')} style={styles.deleteButton}>
+                Desativar 2FA
+              </button>
+            )}
+
+            {twoFactorEnabled && twoFactorStep === 'disabling' && (
+              <form onSubmit={handleDisableTwoFactor} style={styles.form}>
+                <input
+                  style={styles.input}
+                  type="password"
+                  placeholder="Senha atual"
+                  value={twoFactorPassword}
+                  onChange={e => setTwoFactorPassword(e.target.value)}
+                  required
+                />
+                <button style={styles.deleteButton} type="submit">Confirmar Desativação</button>
+              </form>
+            )}
+          </div>
+
           <button onClick={handleDeleteAccount} disabled={deleting} style={styles.deleteButton}>
             {deleting ? 'Revogando credenciais...' : 'Excluir Minha Conta Permanentemente'}
           </button>
@@ -120,6 +215,10 @@ const styles = {
   notice: { background: '#EAF7F0', border: '1px solid #C6EDD4', borderRadius: '12px', padding: '12px', fontSize: '12px', color: '#2D6A4F', lineHeight: '1.5', fontWeight: 500 },
   button: { padding: '14px', borderRadius: '12px', background: '#2D6A4F', color: '#FFF', fontWeight: 600, fontSize: '14px', border: 'none', cursor: 'pointer', marginTop: '6px' },
   notifButton: { width: '100%', marginTop: '16px', padding: '13px', borderRadius: '12px', background: '#EAF7F0', color: '#2D6A4F', fontWeight: 600, fontSize: '13px', border: '1px solid #C6EDD4', cursor: 'pointer' },
+  twoFactorSection: { marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E2ECE9', display: 'flex', flexDirection: 'column', gap: '10px' },
+  twoFactorHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+  badgeOn: { fontSize: '11px', fontWeight: 700, color: '#2D6A4F', background: '#EAF7F0', padding: '4px 10px', borderRadius: '999px' },
+  badgeOff: { fontSize: '11px', fontWeight: 700, color: '#8A8F8C', background: '#F1F3F2', padding: '4px 10px', borderRadius: '999px' },
   deleteButton: { width: '100%', marginTop: '12px', padding: '13px', borderRadius: '12px', background: '#FFF5F5', color: '#E63946', fontWeight: 600, fontSize: '13px', border: '1px solid #FED7D7', cursor: 'pointer' },
   error: { color: '#E63946', fontSize: '13px', textAlign: 'center', fontWeight: 500 },
   success: { color: '#2D6A4F', fontSize: '13px', textAlign: 'center', fontWeight: 600 },

@@ -8,16 +8,37 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loginToken, setLoginToken] = useState('');
+  const [code, setCode] = useState('');
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     try {
       const { data } = await api.post('/auth/login', { email, password });
+      if (data.twoFactorRequired) {
+        setLoginToken(data.loginToken);
+        return;
+      }
       localStorage.setItem('access_token', data.access_token);
       navigate('/dashboard');
     } catch {
       setError('E-mail ou senha inválidos.');
+    }
+  }
+
+  async function handleVerifyCode(e) {
+    e.preventDefault();
+    setError('');
+    try {
+      const { data } = await api.post('/auth/login/verify-2fa', {
+        loginToken,
+        code,
+      });
+      localStorage.setItem('access_token', data.access_token);
+      navigate('/dashboard');
+    } catch {
+      setError('Código inválido ou expirado.');
     }
   }
 
@@ -55,29 +76,51 @@ export default function Login() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} style={styles.form}>
-            <input
-              style={styles.input}
-              type="email"
-              placeholder="E-mail corporativo ou pessoal"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
-            <input
-              style={styles.input}
-              type="password"
-              placeholder="Senha de acesso"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-            />
-            {error && <p style={styles.error}>{error}</p>}
-            <button style={styles.button} type="submit">Autenticar Sistema</button>
-          </form>
+          {loginToken ? (
+            <form onSubmit={handleVerifyCode} style={styles.form}>
+              <p style={styles.notice}>Digite o código de 6 dígitos enviado para seu e-mail.</p>
+              <input
+                style={styles.input}
+                type="text"
+                inputMode="numeric"
+                placeholder="Código de verificação"
+                value={code}
+                onChange={e => setCode(e.target.value)}
+                maxLength={6}
+                required
+              />
+              {error && <p style={styles.error}>{error}</p>}
+              <button style={styles.button} type="submit">Confirmar Código</button>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} style={styles.form}>
+              <input
+                style={styles.input}
+                type="email"
+                placeholder="E-mail corporativo ou pessoal"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+              />
+              <input
+                style={styles.input}
+                type="password"
+                placeholder="Senha de acesso"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+              />
+              {error && <p style={styles.error}>{error}</p>}
+              <button style={styles.button} type="submit">Autenticar Sistema</button>
+            </form>
+          )}
 
-          <Link to="/register" style={styles.link}>Solicitar nova credencial — Criar Conta</Link>
-          <Link to="/esqueci-senha" style={styles.link}>Esqueci minha senha</Link>
+          {!loginToken && (
+            <>
+              <Link to="/register" style={styles.link}>Solicitar nova credencial — Criar Conta</Link>
+              <Link to="/esqueci-senha" style={styles.link}>Esqueci minha senha</Link>
+            </>
+          )}
         </div>
       </div>
     </PageContainer>
@@ -96,5 +139,6 @@ const styles = {
   input: { padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBDCD0', background: '#FFF', fontSize: '14px', outline: 'none', color: '#1B4332', transition: 'border-color 0.2s' },
   button: { padding: '14px', borderRadius: '12px', background: '#2D6A4F', color: '#FFF', fontWeight: 600, fontSize: '14px', border: 'none', cursor: 'pointer', marginTop: '6px', boxShadow: '0 4px 12px rgba(45, 106, 79, 0.15)' },
   error: { color: '#E63946', fontSize: '13px', textAlign: 'center', margin: '4px 0 0', fontWeight: 500 },
+  notice: { color: '#2D6A4F', fontSize: '13px', textAlign: 'center', margin: '0 0 4px', fontWeight: 500 },
   link: { display: 'block', textAlign: 'center', marginTop: '24px', color: '#2D6A4F', fontSize: '13px', fontWeight: 600, textDecoration: 'none' },
 };
