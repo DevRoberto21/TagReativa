@@ -1,3 +1,5 @@
+const MAX_OUTPUT_DIMENSION = 800;
+
 export default async function getCroppedImg(imageSrc, pixelCrop) {
   const image = await new Promise((resolve, reject) => {
     const img = new Image();
@@ -6,9 +8,16 @@ export default async function getCroppedImg(imageSrc, pixelCrop) {
     img.src = imageSrc;
   });
 
+  const scale = Math.min(
+    1,
+    MAX_OUTPUT_DIMENSION / Math.max(pixelCrop.width, pixelCrop.height),
+  );
+  const targetWidth = Math.round(pixelCrop.width * scale);
+  const targetHeight = Math.round(pixelCrop.height * scale);
+
   const canvas = document.createElement('canvas');
-  canvas.width = pixelCrop.width;
-  canvas.height = pixelCrop.height;
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
   const ctx = canvas.getContext('2d');
 
   ctx.drawImage(
@@ -19,8 +28,8 @@ export default async function getCroppedImg(imageSrc, pixelCrop) {
     pixelCrop.height,
     0,
     0,
-    pixelCrop.width,
-    pixelCrop.height,
+    targetWidth,
+    targetHeight,
   );
 
   return new Promise((resolve) => {
