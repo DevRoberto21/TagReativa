@@ -56,6 +56,7 @@ export class UsersService {
         email: true,
         whatsapp: true,
         age: true,
+        twoFactorEnabled: true,
       },
     });
     if (!user) throw new NotFoundException('Usuário não encontrado.');

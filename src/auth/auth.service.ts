@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes, randomInt, createHash } from 'crypto';
 import { UsersService } from '../users/users.service';
@@ -9,6 +9,8 @@ import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
+import { ConfirmTwoFactorDto } from './dto/confirm-two-factor.dto';
+import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const FORGOT_PASSWORD_GENERIC_MESSAGE =
@@ -139,6 +141,94 @@ export class AuthService {
 
     const payload = { sub: user.id, email: user.email };
     return { access_token: this.jwtService.sign(payload) };
+  }
+
+  async enableTwoFactor(userId: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Usuário não encontrado.');
+
+    await this.issueTwoFactorCode(userId, user.email, false);
+
+    return { message: 'Código de confirmação enviado para seu e-mail.' };
+  }
+
+  async confirmTwoFactor(
+    userId: string,
+    dto: ConfirmTwoFactorDto,
+  ): Promise<{ message: string }> {
+    const record = await this.prisma.twoFactorCode.findFirst({
+      where: { userId, loginTokenHash: null, usedAt: null },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const invalid =
+      !record ||
+      record.expiresAt < new Date() ||
+      record.attempts >= MAX_TWO_FACTOR_ATTEMPTS;
+
+    if (invalid) {
+      throw new BadRequestException(TWO_FACTOR_GENERIC_ERROR);
+    }
+
+    const codeHash = createHash('sha256').update(dto.code).digest('hex');
+    if (codeHash !== record.codeHash) {
+      await this.prisma.twoFactorCode.update({
+        where: { id: record.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new BadRequestException(TWO_FACTOR_GENERIC_ERROR);
+    }
+
+    await this.prisma.twoFactorCode.update({
+      where: { id: record.id },
+      data: { usedAt: new Date() },
+    });
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorEnabled: true },
+    });
+
+    return { message: '2FA ativado com sucesso.' };
+  }
+
+  async disableTwoFactor(
+    userId: string,
+    dto: DisableTwoFactorDto,
+  ): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Usuário não encontrado.');
+
+    const valid = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!valid) throw new UnauthorizedException('Senha incorreta.');
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorEnabled: false },
+    });
+
+    void this.emailService
+      .send(
+        user.email,
+        'Autenticação de dois fatores desativada - TagReativa',
+        'A autenticação de dois fatores da sua conta TagReativa foi desativada. Se você não fez essa alteração, entre em contato imediatamente.',
+      )
+      .then((delivered) => {
+        if (!delivered) {
+          console.error(
+            '[AUTH] Falha ao enviar e-mail de aviso de desativação de 2FA para',
+            user.email,
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        console.error(
+          '[AUTH] Erro inesperado no envio do e-mail de aviso de desativação de 2FA:',
+          err,
+        );
+      });
+
+    return { message: '2FA desativado com sucesso.' };
   }
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {

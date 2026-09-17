@@ -365,4 +365,129 @@ describe('AuthService', () => {
       expect(prisma.user.findUnique).not.toHaveBeenCalled();
     });
   });
+
+  describe('enableTwoFactor', () => {
+    it('issues an enable-confirmation code (no loginToken) and does not flip the flag yet', async () => {
+      prisma.user.findUnique.mockResolvedValue(existingUser);
+      prisma.twoFactorCode.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.twoFactorCode.create.mockResolvedValue({});
+      emailService.send.mockResolvedValue(true);
+
+      const result = await service.enableTwoFactor('user-1');
+
+      expect(result).toEqual({
+        message: 'Código de confirmação enviado para seu e-mail.',
+      });
+      expect(prisma.twoFactorCode.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1', loginTokenHash: null },
+      });
+      const createArgs = prisma.twoFactorCode.create.mock.calls[0][0];
+      expect(createArgs.data.loginTokenHash).toBeNull();
+      expect(emailService.send).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('confirmTwoFactor', () => {
+    const pendingEnableCode = {
+      id: 'tfc-enable-1',
+      userId: 'user-1',
+      loginTokenHash: null as string | null,
+      codeHash: '',
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      attempts: 0,
+      usedAt: null as Date | null,
+      createdAt: new Date(),
+    };
+
+    it('flips twoFactorEnabled to true for a valid code', async () => {
+      const rightCode = '654321';
+      const codeHash = createHash('sha256').update(rightCode).digest('hex');
+      prisma.twoFactorCode.findFirst.mockResolvedValue({
+        ...pendingEnableCode,
+        codeHash,
+      });
+      prisma.twoFactorCode.update.mockResolvedValue({});
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.confirmTwoFactor('user-1', {
+        code: rightCode,
+      });
+
+      expect(result).toEqual({ message: '2FA ativado com sucesso.' });
+      expect(prisma.twoFactorCode.findFirst).toHaveBeenCalledWith({
+        where: { userId: 'user-1', loginTokenHash: null, usedAt: null },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { twoFactorEnabled: true },
+      });
+    });
+
+    it('throws a generic error and leaves the flag unchanged for a wrong code', async () => {
+      const codeHash = createHash('sha256').update('000000').digest('hex');
+      prisma.twoFactorCode.findFirst.mockResolvedValue({
+        ...pendingEnableCode,
+        codeHash,
+      });
+      prisma.twoFactorCode.update.mockResolvedValue({});
+
+      await expect(
+        service.confirmTwoFactor('user-1', { code: '111111' }),
+      ).rejects.toThrow('Código inválido ou expirado.');
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('throws a generic error for an expired code', async () => {
+      prisma.twoFactorCode.findFirst.mockResolvedValue({
+        ...pendingEnableCode,
+        expiresAt: new Date(Date.now() - 1000),
+      });
+
+      await expect(
+        service.confirmTwoFactor('user-1', { code: '123456' }),
+      ).rejects.toThrow('Código inválido ou expirado.');
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('disableTwoFactor', () => {
+    it('flips twoFactorEnabled to false and notifies by email for the correct password', async () => {
+      const passwordHash = await bcrypt.hash('current-password', 10);
+      prisma.user.findUnique.mockResolvedValue({
+        ...twoFactorUser,
+        passwordHash,
+      });
+      prisma.user.update.mockResolvedValue({});
+      emailService.send.mockResolvedValue(true);
+
+      const result = await service.disableTwoFactor('user-2', {
+        password: 'current-password',
+      });
+
+      expect(result).toEqual({ message: '2FA desativado com sucesso.' });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-2' },
+        data: { twoFactorEnabled: false },
+      });
+      expect(emailService.send).toHaveBeenCalledTimes(1);
+      const [to, subject] = emailService.send.mock.calls[0];
+      expect(to).toBe('twofactor@example.com');
+      expect(subject).toMatch(/desativada/i);
+    });
+
+    it('throws for an incorrect password and leaves the flag unchanged', async () => {
+      const passwordHash = await bcrypt.hash('current-password', 10);
+      prisma.user.findUnique.mockResolvedValue({
+        ...twoFactorUser,
+        passwordHash,
+      });
+
+      await expect(
+        service.disableTwoFactor('user-2', { password: 'wrong' }),
+      ).rejects.toThrow('Senha incorreta.');
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(emailService.send).not.toHaveBeenCalled();
+    });
+  });
 });
