@@ -1,11 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PetsController } from './pets.controller';
 import { PetsService } from './pets.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 describe('PetsController', () => {
   let controller: PetsController;
+  let cloudinaryService: { generateUploadSignature: jest.Mock };
 
   beforeEach(async () => {
+    cloudinaryService = { generateUploadSignature: jest.fn() };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PetsController],
       providers: [
@@ -21,6 +25,7 @@ describe('PetsController', () => {
             findScans: jest.fn(),
           },
         },
+        { provide: CloudinaryService, useValue: cloudinaryService },
       ],
     }).compile();
 
@@ -29,5 +34,23 @@ describe('PetsController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  it('getPhotoUploadSignature delegates to CloudinaryService', () => {
+    const mockSignature = {
+      signature: 'abc',
+      timestamp: 123,
+      apiKey: 'key',
+      cloudName: 'dan2bsmlk',
+      uploadPreset: 'tagreativa_pictures',
+    };
+    cloudinaryService.generateUploadSignature.mockReturnValue(mockSignature);
+
+    const result = controller.getPhotoUploadSignature();
+
+    expect(result).toEqual(mockSignature);
+    expect(cloudinaryService.generateUploadSignature).toHaveBeenCalledTimes(
+      1,
+    );
   });
 });

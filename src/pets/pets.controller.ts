@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PetsService } from './pets.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreatePetDto } from './dto/create-pet.dto';
 import { UpdatePetStatusDto } from './dto/update-pet-status.dto';
 import { UpdatePetDto } from './dto/update-pet.dto';
@@ -24,11 +25,19 @@ interface AuthenticatedRequest {
 @UseGuards(AuthGuard('jwt'))
 @Controller('pets')
 export class PetsController {
-  constructor(private readonly petsService: PetsService) {}
+  constructor(
+    private readonly petsService: PetsService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   @Post()
   create(@Request() req: AuthenticatedRequest, @Body() dto: CreatePetDto) {
     return this.petsService.create(req.user.userId, dto);
+  }
+
+  @Post('photo-upload-signature')
+  getPhotoUploadSignature() {
+    return this.cloudinaryService.generateUploadSignature();
   }
 
   @Get()
