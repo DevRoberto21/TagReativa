@@ -91,6 +91,17 @@ export default function Login() {
               />
               {error && <p style={styles.error}>{error}</p>}
               <button style={styles.button} type="submit">Confirmar Código</button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginToken('');
+                  setCode('');
+                  setError('');
+                }}
+                style={styles.backButton}
+              >
+                Voltar e tentar novamente
+              </button>
             </form>
           ) : (
             <form onSubmit={handleSubmit} style={styles.form}>
@@ -138,6 +149,7 @@ const styles = {
   form: { display: 'flex', flexDirection: 'column', gap: '14px' },
   input: { padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBDCD0', background: '#FFF', fontSize: '14px', outline: 'none', color: '#1B4332', transition: 'border-color 0.2s' },
   button: { padding: '14px', borderRadius: '12px', background: '#2D6A4F', color: '#FFF', fontWeight: 600, fontSize: '14px', border: 'none', cursor: 'pointer', marginTop: '6px', boxShadow: '0 4px 12px rgba(45, 106, 79, 0.15)' },
+  backButton: { padding: '12px', borderRadius: '12px', background: 'transparent', color: '#2D6A4F', fontWeight: 600, fontSize: '13px', border: '1px solid #CBDCD0', cursor: 'pointer' },
   error: { color: '#E63946', fontSize: '13px', textAlign: 'center', margin: '4px 0 0', fontWeight: 500 },
   notice: { color: '#2D6A4F', fontSize: '13px', textAlign: 'center', margin: '0 0 4px', fontWeight: 500 },
   link: { display: 'block', textAlign: 'center', marginTop: '24px', color: '#2D6A4F', fontSize: '13px', fontWeight: 600, textDecoration: 'none' },

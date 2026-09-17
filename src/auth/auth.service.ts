@@ -120,10 +120,19 @@ export class AuthService {
 
     const codeHash = createHash('sha256').update(dto.code).digest('hex');
     if (codeHash !== record.codeHash) {
-      await this.prisma.twoFactorCode.update({
+      const updated = await this.prisma.twoFactorCode.update({
         where: { id: record.id },
         data: { attempts: { increment: 1 } },
       });
+      if (updated.attempts >= MAX_TWO_FACTOR_ATTEMPTS) {
+        // Lock the code out permanently once the limit is reached, so a
+        // subsequent correct-looking guess (or a retry racing this one)
+        // cannot slip through the up-front check on a later request.
+        await this.prisma.twoFactorCode.update({
+          where: { id: record.id },
+          data: { usedAt: new Date() },
+        });
+      }
       throw new BadRequestException(TWO_FACTOR_GENERIC_ERROR);
     }
 
@@ -172,10 +181,19 @@ export class AuthService {
 
     const codeHash = createHash('sha256').update(dto.code).digest('hex');
     if (codeHash !== record.codeHash) {
-      await this.prisma.twoFactorCode.update({
+      const updated = await this.prisma.twoFactorCode.update({
         where: { id: record.id },
         data: { attempts: { increment: 1 } },
       });
+      if (updated.attempts >= MAX_TWO_FACTOR_ATTEMPTS) {
+        // Lock the code out permanently once the limit is reached, so a
+        // subsequent correct-looking guess (or a retry racing this one)
+        // cannot slip through the up-front check on a later request.
+        await this.prisma.twoFactorCode.update({
+          where: { id: record.id },
+          data: { usedAt: new Date() },
+        });
+      }
       throw new BadRequestException(TWO_FACTOR_GENERIC_ERROR);
     }
 

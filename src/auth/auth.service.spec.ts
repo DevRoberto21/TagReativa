@@ -338,6 +338,31 @@ describe('AuthService', () => {
       });
     });
 
+    it('locks the code out immediately once a wrong guess reaches the attempt limit', async () => {
+      const codeHash = createHash('sha256').update('999999').digest('hex');
+      prisma.twoFactorCode.findUnique.mockResolvedValue({
+        ...pendingCode,
+        codeHash,
+        attempts: 4,
+      });
+      prisma.twoFactorCode.update
+        .mockResolvedValueOnce({ attempts: 5 })
+        .mockResolvedValueOnce({});
+
+      await expect(
+        service.verifyTwoFactorLogin({ loginToken: 'raw', code: '111111' }),
+      ).rejects.toThrow('Código inválido ou expirado.');
+
+      expect(prisma.twoFactorCode.update).toHaveBeenNthCalledWith(1, {
+        where: { id: 'tfc-1' },
+        data: { attempts: { increment: 1 } },
+      });
+      expect(prisma.twoFactorCode.update).toHaveBeenNthCalledWith(2, {
+        where: { id: 'tfc-1' },
+        data: { usedAt: expect.any(Date) },
+      });
+    });
+
     it('throws a generic error for an expired code', async () => {
       prisma.twoFactorCode.findUnique.mockResolvedValue({
         ...pendingCode,
