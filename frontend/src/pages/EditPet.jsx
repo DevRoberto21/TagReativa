@@ -4,6 +4,7 @@ import Cropper from 'react-easy-crop';
 import api from '../services/api';
 import { usePhotoUpload } from '../hooks/usePhotoUpload';
 import PageContainer from '../components/PageContainer';
+import { cloudinaryUrl } from '../utils/cloudinaryUrl';
 
 export default function EditPet() {
   const navigate = useNavigate();
@@ -114,7 +115,7 @@ export default function EditPet() {
         <div style={styles.card}>
           <div style={styles.photoSection}>
             <div style={styles.avatarWrapper}>
-              {photoUrl ? <img src={photoUrl} alt="Pet" style={styles.avatar} /> : <div style={styles.avatarPlaceholder}>🐾</div>}
+              {photoUrl ? <img src={cloudinaryUrl(photoUrl, { width: 200 })} alt="Pet" style={styles.avatar} /> : <div style={styles.avatarPlaceholder}>🐾</div>}
             </div>
             <label style={styles.photoButton}>
               Alterar Registro Fotográfico

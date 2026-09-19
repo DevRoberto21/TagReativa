@@ -5,10 +5,11 @@ import { useQrModal } from '../hooks/useQrModal';
 import QrModal from '../components/QrModal';
 import ConfirmModal from '../components/ConfirmModal';
 import PageContainer from '../components/PageContainer';
+import { cloudinaryUrl } from '../utils/cloudinaryUrl';
 
 function PetAvatar({ pet }) {
   if (pet.photoUrl) {
-    return <img src={pet.photoUrl} alt={pet.name} style={styles.petPhoto} />;
+    return <img src={cloudinaryUrl(pet.photoUrl, { width: 200 })} alt={pet.name} style={styles.petPhoto} />;
   }
   const emoji = pet.species === 'Cachorro' ? '🐶' : pet.species === 'Gato' ? '🐱' : '🐾';
   return <div style={styles.petPhotoEmoji}>{emoji}</div>;

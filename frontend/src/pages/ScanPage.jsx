@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useScan } from '../hooks/useScan';
 import PageContainer from '../components/PageContainer';
+import { cloudinaryUrl } from '../utils/cloudinaryUrl';
 
 export default function ScanPage() {
   const { petId } = useParams();
@@ -54,7 +55,7 @@ export default function ScanPage() {
         <div style={styles.card}>
           <div style={styles.avatarContainer}>
             {hasPhoto ? (
-              <img src={pet.photoUrl} alt={pet.name} style={styles.petPhoto} />
+              <img src={cloudinaryUrl(pet.photoUrl, { width: 600 })} alt={pet.name} style={styles.petPhoto} />
             ) : (
               <div style={styles.emojiPlaceholder}>
                 {pet?.species === 'Cachorro' ? '🐶' : pet?.species === 'Gato' ? '🐱' : '🐾'}
