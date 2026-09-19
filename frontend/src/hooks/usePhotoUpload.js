@@ -67,7 +67,8 @@ export function usePhotoUpload(initialUrl = '') {
             }
             setPhotoUrl(data.secure_url);
             setShowCropper(false);
-        } catch {
+        } catch (err) {
+            console.error('Erro ao fazer upload da foto:', err);
             setUploadError('Erro ao fazer upload da foto.');
         } finally {
             setUploading(false);
