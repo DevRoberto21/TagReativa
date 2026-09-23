@@ -9,6 +9,7 @@ import {
   Delete,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -24,6 +25,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
   @Post('register')
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
   create(@Body() dto: CreateUserDto) {
     return this.usersService.create(dto);
   }
