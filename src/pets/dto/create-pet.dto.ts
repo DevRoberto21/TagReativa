@@ -1,4 +1,5 @@
 import { IsString, IsInt, IsOptional, Min, Max } from 'class-validator';
+import { IsCloudinaryPhotoUrl } from '../../cloudinary/is-cloudinary-photo-url';
 
 export class CreatePetDto {
   @IsString()
@@ -12,7 +13,7 @@ export class CreatePetDto {
   breed?: string;
 
   @IsOptional()
-  @IsString()
+  @IsCloudinaryPhotoUrl()
   photoUrl?: string;
 
   @IsOptional()

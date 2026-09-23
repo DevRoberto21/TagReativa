@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
 
-const CLOUDINARY_CLOUD_NAME = 'dan2bsmlk';
+export const CLOUDINARY_CLOUD_NAME = 'dan2bsmlk';
 const CLOUDINARY_UPLOAD_PRESET = 'tagreativa_pictures';
 
 export interface CloudinaryUploadSignature {

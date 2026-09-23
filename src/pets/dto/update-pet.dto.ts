@@ -8,6 +8,7 @@ import {
   IsBoolean,
   ValidateIf,
 } from 'class-validator';
+import { IsCloudinaryPhotoUrl } from '../../cloudinary/is-cloudinary-photo-url';
 
 export class UpdatePetDto {
   @IsOptional()
@@ -25,7 +26,7 @@ export class UpdatePetDto {
   breed?: string;
 
   @IsOptional()
-  @IsString()
+  @IsCloudinaryPhotoUrl()
   photoUrl?: string;
 
   @IsOptional()
