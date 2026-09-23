@@ -11,8 +11,13 @@ async function bootstrap() {
   app.use(helmet());
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  const allowedOrigins = [
+    'http://localhost:5173',
+    process.env.FRONTEND_URL,
+  ].filter((origin): origin is string => Boolean(origin));
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+    origin: allowedOrigins,
     credentials: true,
   });
 
