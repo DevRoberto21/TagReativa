@@ -11,6 +11,9 @@ export default function Profile() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteStep, setDeleteStep] = useState('idle');
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteMessage, setDeleteMessage] = useState('');
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [twoFactorStep, setTwoFactorStep] = useState('idle');
   const [twoFactorCode, setTwoFactorCode] = useState('');
@@ -47,15 +50,16 @@ export default function Profile() {
     }
   }
 
-  async function handleDeleteAccount() {
-    if (!window.confirm('Excluir conta permanentemente? Todos os dispositivos vinculados e logs serão removidos do ecossistema de proteção.')) return;
+  async function handleDeleteAccount(e) {
+    e.preventDefault();
+    setDeleteMessage('');
     setDeleting(true);
     try {
-      await api.delete('/users/me');
+      await api.delete('/users/me', { data: { password: deletePassword } });
       localStorage.clear();
       navigate('/login');
-    } catch {
-      setError('Erro ao revogar conta.');
+    } catch (err) {
+      setDeleteMessage(err.response?.status === 403 ? 'Senha incorreta.' : 'Erro ao revogar conta.');
       setDeleting(false);
     }
   }
@@ -192,9 +196,38 @@ export default function Profile() {
             )}
           </div>
 
-          <button onClick={handleDeleteAccount} disabled={deleting} style={styles.deleteButton}>
-            {deleting ? 'Revogando credenciais...' : 'Excluir Minha Conta Permanentemente'}
-          </button>
+          {deleteStep === 'idle' && (
+            <button type="button" onClick={() => setDeleteStep('confirming')} style={styles.deleteButton}>
+              Excluir Minha Conta Permanentemente
+            </button>
+          )}
+
+          {deleteStep === 'confirming' && (
+            <form onSubmit={handleDeleteAccount} style={styles.form}>
+              <p style={styles.error}>
+                Excluir conta permanentemente? Todos os dispositivos vinculados e logs serão removidos do ecossistema de proteção.
+              </p>
+              <input
+                style={styles.input}
+                type="password"
+                placeholder="Senha atual"
+                value={deletePassword}
+                onChange={e => setDeletePassword(e.target.value)}
+                required
+              />
+              {deleteMessage && <p style={styles.error}>{deleteMessage}</p>}
+              <button style={styles.deleteButton} type="submit" disabled={deleting}>
+                {deleting ? 'Revogando credenciais...' : 'Confirmar Exclusão'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setDeleteStep('idle'); setDeletePassword(''); setDeleteMessage(''); }}
+                style={styles.back}
+              >
+                Cancelar
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </PageContainer>

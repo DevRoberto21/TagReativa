@@ -13,6 +13,7 @@ import { Throttle } from '@nestjs/throttler';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
 
 interface AuthenticatedRequest {
   user: {
@@ -44,8 +45,11 @@ export class UsersController {
 
   @UseGuards(AuthGuard('jwt'))
   @Delete('me')
-  deleteMe(@Request() req: AuthenticatedRequest) {
-    return this.usersService.deleteMe(req.user.userId);
+  deleteMe(
+    @Body() dto: DeleteAccountDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.usersService.deleteMe(req.user.userId, dto);
   }
 
   @Post('me/callmebot-test')

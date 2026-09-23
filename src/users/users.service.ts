@@ -3,12 +3,14 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CallMeBotService } from '../callmebot/callmebot.service';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
 
 @Injectable()
 export class UsersService {
@@ -83,9 +85,13 @@ export class UsersService {
       },
     });
   }
-  async deleteMe(userId: string): Promise<void> {
+  async deleteMe(userId: string, dto: DeleteAccountDto): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuário não encontrado.');
+
+    // 403 rather than 401: the frontend logs the user out on any 401.
+    const valid = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!valid) throw new ForbiddenException('Senha incorreta.');
 
     await this.prisma.user.delete({ where: { id: userId } });
   }
