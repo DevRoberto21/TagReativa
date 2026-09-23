@@ -64,7 +64,11 @@ model ScanLog {
   consentGranted Boolean
   consentVersion String
   timestamp      DateTime       @default(now())
+  deviceId       String?
+  alertSent      Boolean        @default(false)
   notifications  Notification[]
+
+  @@index([petId, timestamp])
 }
 
 model Notification {

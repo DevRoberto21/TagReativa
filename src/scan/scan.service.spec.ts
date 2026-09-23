@@ -10,7 +10,7 @@ describe('ScanService', () => {
   let service: ScanService;
   let prisma: {
     pet: { findUnique: jest.Mock };
-    scanLog: { create: jest.Mock };
+    scanLog: { create: jest.Mock; count: jest.Mock };
     notification: { create: jest.Mock };
   };
   let callMeBot: { send: jest.Mock };
@@ -56,7 +56,7 @@ describe('ScanService', () => {
   beforeEach(async () => {
     prisma = {
       pet: { findUnique: jest.fn() },
-      scanLog: { create: jest.fn() },
+      scanLog: { create: jest.fn(), count: jest.fn() },
       notification: { create: jest.fn() },
     };
     callMeBot = { send: jest.fn() };
@@ -74,6 +74,7 @@ describe('ScanService', () => {
     service = module.get<ScanService>(ScanService);
 
     prisma.scanLog.create.mockResolvedValue(createdScanLog);
+    prisma.scanLog.count.mockResolvedValue(0);
     prisma.notification.create.mockResolvedValue({});
   });
 
@@ -200,5 +201,130 @@ describe('ScanService', () => {
     expect(channelsCreated.sort()).toEqual(
       [NotificationChannel.EMAIL, NotificationChannel.WHATSAPP].sort(),
     );
+  });
+
+  describe('alert rate limit', () => {
+    const deviceId = '8f14e45f-ceea-467a-9575-0c5b0b0b7c11';
+
+    // count() is called for the pet-wide total first, then for the device.
+    function mockAlertCounts(total: number, device: number) {
+      prisma.scanLog.count
+        .mockResolvedValueOnce(total)
+        .mockResolvedValueOnce(device);
+    }
+
+    function createdScanData() {
+      const [[arg]] = prisma.scanLog.create.mock.calls as [
+        [{ data: Record<string, unknown> }],
+      ];
+      return arg.data;
+    }
+
+    beforeEach(() => {
+      prisma.pet.findUnique.mockResolvedValue(basePet);
+      callMeBot.send.mockResolvedValue(true);
+      email.send.mockResolvedValue(true);
+    });
+
+    it('sends the alert and records deviceId + alertSent when under both limits', async () => {
+      mockAlertCounts(0, 0);
+
+      const result = await service.processScan({ ...scanDto, deviceId });
+
+      expect(email.send).toHaveBeenCalledTimes(1);
+      expect(createdScanData()).toMatchObject({
+        deviceId,
+        alertSent: true,
+      });
+      expect(result.ownerNotified).toBe(true);
+    });
+
+    it('counts only alerted scans of this pet in the last 30 minutes', async () => {
+      mockAlertCounts(0, 0);
+      const before = Date.now();
+
+      await service.processScan({ ...scanDto, deviceId });
+
+      type CountArgs = [{ where: { timestamp: { gte: Date } } }];
+      const [totalQuery, deviceQuery] = (
+        prisma.scanLog.count.mock.calls as CountArgs[]
+      ).map(([args]) => args.where);
+      expect(totalQuery).toMatchObject({ petId: 'pet-1', alertSent: true });
+      expect(deviceQuery).toMatchObject({
+        petId: 'pet-1',
+        alertSent: true,
+        deviceId,
+      });
+      const since = totalQuery.timestamp.gte.getTime();
+      expect(before - since).toBeGreaterThanOrEqual(30 * 60 * 1000 - 50);
+      expect(before - since).toBeLessThanOrEqual(30 * 60 * 1000 + 50);
+    });
+
+    it('skips the alert when this device already triggered 3 alerts', async () => {
+      mockAlertCounts(3, 3);
+
+      const result = await service.processScan({ ...scanDto, deviceId });
+
+      expect(email.send).not.toHaveBeenCalled();
+      expect(callMeBot.send).not.toHaveBeenCalled();
+      expect(createdScanData()).toMatchObject({
+        deviceId,
+        alertSent: false,
+      });
+      expect(result.ownerNotified).toBe(false);
+    });
+
+    it('still alerts for a different device while another one is limited', async () => {
+      mockAlertCounts(3, 0);
+
+      const result = await service.processScan({ ...scanDto, deviceId });
+
+      expect(email.send).toHaveBeenCalledTimes(1);
+      expect(result.ownerNotified).toBe(true);
+    });
+
+    it('skips the alert when the pet already has 10 alerts across all devices', async () => {
+      mockAlertCounts(10, 0);
+
+      const result = await service.processScan({ ...scanDto, deviceId });
+
+      expect(email.send).not.toHaveBeenCalled();
+      expect(result.ownerNotified).toBe(false);
+    });
+
+    it('applies only the pet-wide cap when no deviceId is sent', async () => {
+      prisma.scanLog.count.mockResolvedValueOnce(5);
+
+      const result = await service.processScan(scanDto);
+
+      expect(prisma.scanLog.count).toHaveBeenCalledTimes(1);
+      expect(email.send).toHaveBeenCalledTimes(1);
+      expect(result.ownerNotified).toBe(true);
+    });
+
+    it('keeps the owner contact in the response even when the alert is skipped', async () => {
+      mockAlertCounts(10, 3);
+
+      const result = await service.processScan({ ...scanDto, deviceId });
+
+      expect(result.owner.name).toBe('Roberto');
+      expect(result.owner.whatsappHref).toBe('https://wa.me/5511999999999');
+    });
+
+    it('does not query the limit or alert when the pet is not LOST', async () => {
+      prisma.pet.findUnique.mockResolvedValue({
+        ...basePet,
+        status: PetStatus.SAFE,
+      });
+
+      const result = await service.processScan({ ...scanDto, deviceId });
+
+      expect(prisma.scanLog.count).not.toHaveBeenCalled();
+      expect(createdScanData()).toMatchObject({
+        deviceId,
+        alertSent: false,
+      });
+      expect(result.ownerNotified).toBe(false);
+    });
   });
 });

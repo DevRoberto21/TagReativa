@@ -1,11 +1,42 @@
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useScan } from '../hooks/useScan';
 import PageContainer from '../components/PageContainer';
 import { cloudinaryUrl } from '../utils/cloudinaryUrl';
 
+// The page hides the pet and owner data after this long so a scan left open
+// on a phone does not keep exposing the owner's contact indefinitely.
+const SESSION_SECONDS = 5 * 60;
+
+function useCountdown(active) {
+  const [secondsLeft, setSecondsLeft] = useState(SESSION_SECONDS);
+
+  useEffect(() => {
+    if (!active) return;
+    // Derive from a fixed deadline: mobile browsers throttle intervals in
+    // background tabs, so counting ticks would drift.
+    const deadline = Date.now() + SESSION_SECONDS * 1000;
+    const id = setInterval(() => {
+      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setSecondsLeft(left);
+      if (left === 0) clearInterval(id);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [active]);
+
+  return secondsLeft;
+}
+
+function formatSeconds(total) {
+  const m = Math.floor(total / 60);
+  const s = String(total % 60).padStart(2, '0');
+  return `${m}:${s}`;
+}
+
 export default function ScanPage() {
   const { petId } = useParams();
   const { result, error, loading } = useScan(petId);
+  const secondsLeft = useCountdown(Boolean(result));
 
   if (loading) {
     return (
@@ -28,7 +59,21 @@ export default function ScanPage() {
 
   if (!result) return null;
 
-  const { pet, owner } = result;
+  if (secondsLeft === 0) {
+    return (
+      <PageContainer style={styles.centered}>
+        <div style={styles.expiredCard}>
+          <p style={styles.expiredTitle}>Sessão expirada</p>
+          <p style={styles.expiredSub}>Por segurança, os dados do pet ficam visíveis por 5 minutos. Escaneie o QR code novamente para ver as informações.</p>
+          <button type="button" style={styles.reloadButton} onClick={() => window.location.reload()}>
+            Carregar novamente
+          </button>
+        </div>
+      </PageContainer>
+    );
+  }
+
+  const { pet, owner, ownerNotified } = result;
   const isLost = pet?.status === 'LOST';
   const hasPhoto = !!pet?.photoUrl;
   const whatsappHref = owner?.whatsappHref ?? null;
@@ -53,6 +98,7 @@ export default function ScanPage() {
 
       <div style={styles.contentWrapper}>
         <div style={styles.card}>
+          <p style={styles.countdown}>Dados visíveis por mais {formatSeconds(secondsLeft)}</p>
           <div style={styles.avatarContainer}>
             {hasPhoto ? (
               <img src={cloudinaryUrl(pet.photoUrl, { width: 600 })} alt={pet.name} style={styles.petPhoto} />
@@ -85,6 +131,9 @@ export default function ScanPage() {
             <div style={styles.lostBox}>
               <p style={styles.lostTitle}>⚠️ Sistema de Resgate Ativo</p>
               <p style={styles.lostSub}>Este animal foi reportado como perdido. Utilize o canal abaixo para alertar o tutor:</p>
+              {!ownerNotified && (
+                <p style={styles.notifiedNote}>O tutor já foi avisado recentemente. Fale direto com ele pelo WhatsApp abaixo.</p>
+              )}
               {owner?.name && (
                 <p style={styles.ownerName}>Tutor: {owner.name}</p>
               )}
@@ -135,4 +184,10 @@ const styles = {
   safeBox: { background: '#EAF7F0', border: '1px solid #C6EDD4', borderRadius: '16px', padding: 18 },
   safeText: { color: '#2D6A4F', fontWeight: 700, fontSize: 15, margin: '0 0 4px' },
   safeSub: { color: '#52796F', fontSize: 13, margin: 0 },
+  countdown: { color: '#52796F', fontSize: 12, fontWeight: 500, margin: '0 0 16px', fontVariantNumeric: 'tabular-nums' },
+  notifiedNote: { color: '#1B4332', background: '#FFF', border: '1px solid #FED7D7', borderRadius: '10px', fontSize: 13, margin: '0 0 12px', padding: '10px 12px', lineHeight: 1.4 },
+  expiredCard: { background: '#FFF', border: '1px solid #CBDCD0', borderRadius: '16px', padding: '24px', maxWidth: 360, margin: '0 16px', textAlign: 'center' },
+  expiredTitle: { color: '#1B4332', fontWeight: 700, fontSize: 17, margin: '0 0 8px' },
+  expiredSub: { color: '#52796F', fontSize: 14, margin: '0 0 16px', lineHeight: 1.5 },
+  reloadButton: { background: '#2D6A4F', color: '#FFF', border: 'none', borderRadius: '12px', padding: '12px 20px', fontWeight: 600, fontSize: 14, cursor: 'pointer' },
 };

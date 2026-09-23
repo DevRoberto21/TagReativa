@@ -11,7 +11,15 @@ export interface ScanDto {
   ipAddress: string;
   consentGranted: boolean;
   consentVersion: string;
+  deviceId?: string;
 }
+
+// Alerts are rate-limited per pet so repeated scans (reloads, pranks) do not
+// flood the owner. The scan itself is always recorded and the owner contact is
+// always returned; only the e-mail/WhatsApp dispatch is skipped.
+const ALERT_WINDOW_MS = 30 * 60 * 1000;
+const MAX_ALERTS_PER_DEVICE = 3;
+const MAX_ALERTS_PER_PET = 10;
 
 interface IpApiResponse {
   status: string;
@@ -111,6 +119,24 @@ export class ScanService {
     );
   }
 
+  private async canSendAlert(
+    petId: string,
+    deviceId?: string,
+  ): Promise<boolean> {
+    const since = new Date(Date.now() - ALERT_WINDOW_MS);
+    const where = { petId, alertSent: true, timestamp: { gte: since } };
+
+    const petAlerts = await this.prisma.scanLog.count({ where });
+    if (petAlerts >= MAX_ALERTS_PER_PET) return false;
+
+    if (!deviceId) return true;
+
+    const deviceAlerts = await this.prisma.scanLog.count({
+      where: { ...where, deviceId },
+    });
+    return deviceAlerts < MAX_ALERTS_PER_DEVICE;
+  }
+
   async processScan(dto: ScanDto) {
     const pet = await this.prisma.pet.findUnique({
       where: { id: dto.petId },
@@ -131,6 +157,9 @@ export class ScanService {
       longitude = resolved.longitude;
     }
 
+    const alertSent =
+      pet.status === 'LOST' && (await this.canSendAlert(pet.id, dto.deviceId));
+
     const scanLog = await this.prisma.scanLog.create({
       data: {
         petId: pet.id,
@@ -140,10 +169,12 @@ export class ScanService {
         locationSource,
         consentGranted: dto.consentGranted,
         consentVersion: dto.consentVersion,
+        deviceId: dto.deviceId,
+        alertSent,
       },
     });
 
-    if (pet.status === 'LOST') {
+    if (alertSent) {
       const hasLocation = latitude != null && longitude != null;
       const isGps = locationSource === LocationSource.GPS;
       const message = hasLocation
@@ -180,6 +211,7 @@ export class ScanService {
         photoUrl: pet.photoUrl ?? null,
         notes: pet.notes ?? null,
       },
+      ownerNotified: alertSent,
       owner: {
         name: pet.status === 'LOST' ? pet.owner.name : null,
         whatsappHref:

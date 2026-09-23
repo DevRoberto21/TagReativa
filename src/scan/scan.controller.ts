@@ -1,5 +1,5 @@
-import { Controller, Post, Param, Body, Req, UseGuards } from '@nestjs/common';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Controller, Post, Param, Body, Req } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { ScanService } from './scan.service';
 import { ScanBodyDto } from './dto/scan-body.dto';
@@ -9,7 +9,6 @@ export class ScanController {
   constructor(private readonly scanService: ScanService) {}
 
   @Post(':petId')
-  @UseGuards(ThrottlerGuard)
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   scan(
     @Param('petId') petId: string,
@@ -29,6 +28,7 @@ export class ScanController {
       ipAddress,
       consentGranted: body.consentGranted,
       consentVersion: body.consentVersion,
+      deviceId: body.deviceId,
     });
   }
 }

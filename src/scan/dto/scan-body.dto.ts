@@ -3,6 +3,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   Min,
 } from 'class-validator';
@@ -25,4 +26,8 @@ export class ScanBodyDto {
 
   @IsString()
   consentVersion!: string;
+
+  @IsOptional()
+  @IsUUID()
+  deviceId?: string;
 }
