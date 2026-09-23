@@ -143,3 +143,8 @@ vite.config.ts.timestamp-*
 .vite/
 
 /generated/prisma
+
+# Local tooling output (code graph, security scans)
+graphify-out/
+strix_runs/
+.gitattributes
