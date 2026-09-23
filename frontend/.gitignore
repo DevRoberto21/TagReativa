@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local HTTPS dev certificates (mkcert)
+.cert/
