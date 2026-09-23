@@ -36,6 +36,7 @@ describe('AuthService', () => {
     passwordHash: 'hash',
     whatsapp: '5511999999999',
     twoFactorEnabled: false,
+    tokenVersion: 3,
   };
 
   const twoFactorUser = {
@@ -168,7 +169,10 @@ describe('AuthService', () => {
 
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'user-1' },
-        data: { passwordHash: expect.any(String) },
+        data: {
+          passwordHash: expect.any(String),
+          tokenVersion: { increment: 1 },
+        },
       });
       expect(prisma.passwordResetToken.update).toHaveBeenCalledWith({
         where: { id: 'reset-1' },
@@ -228,6 +232,11 @@ describe('AuthService', () => {
       });
 
       expect(result).toEqual({ access_token: 'signed-jwt' });
+      expect(jwtService.sign).toHaveBeenCalledWith({
+        sub: 'user-1',
+        email: 'owner@example.com',
+        ver: 3,
+      });
       expect(prisma.twoFactorCode.create).not.toHaveBeenCalled();
       expect(emailService.send).not.toHaveBeenCalled();
     });
@@ -314,6 +323,11 @@ describe('AuthService', () => {
       });
 
       expect(result).toEqual({ access_token: 'signed-jwt' });
+      expect(jwtService.sign).toHaveBeenCalledWith({
+        sub: 'user-2',
+        email: 'twofactor@example.com',
+        ver: 3,
+      });
       expect(prisma.twoFactorCode.update).toHaveBeenCalledWith({
         where: { id: 'tfc-1' },
         data: { usedAt: expect.any(Date) },

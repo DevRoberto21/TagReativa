@@ -42,8 +42,21 @@ export class AuthService {
       return { twoFactorRequired: true, loginToken: loginToken! };
     }
 
-    const payload = { sub: user.id, email: user.email };
-    return { access_token: this.jwtService.sign(payload) };
+    return { access_token: this.signAccessToken(user) };
+  }
+
+  // `ver` lets JwtStrategy reject tokens issued before the user's
+  // tokenVersion was bumped (e.g. by a password reset).
+  private signAccessToken(user: {
+    id: string;
+    email: string;
+    tokenVersion: number;
+  }): string {
+    return this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      ver: user.tokenVersion,
+    });
   }
 
   private async issueTwoFactorCode(
@@ -148,8 +161,7 @@ export class AuthService {
       throw new BadRequestException(TWO_FACTOR_GENERIC_ERROR);
     }
 
-    const payload = { sub: user.id, email: user.email };
-    return { access_token: this.jwtService.sign(payload) };
+    return { access_token: this.signAccessToken(user) };
   }
 
   async enableTwoFactor(userId: string): Promise<{ message: string }> {
@@ -311,7 +323,7 @@ export class AuthService {
 
     await this.prisma.user.update({
       where: { id: resetToken.userId },
-      data: { passwordHash },
+      data: { passwordHash, tokenVersion: { increment: 1 } },
     });
 
     await this.prisma.passwordResetToken.update({

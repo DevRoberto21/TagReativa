@@ -32,6 +32,7 @@ model User {
   callMeBotApiKey     String?
   age                 Int?
   twoFactorEnabled    Boolean               @default(false)
+  tokenVersion        Int                   @default(0)
   pets                Pet[]
   passwordResetTokens PasswordResetToken[]
   twoFactorCodes      TwoFactorCode[]
