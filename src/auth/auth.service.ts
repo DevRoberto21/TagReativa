@@ -18,6 +18,11 @@ const FORGOT_PASSWORD_GENERIC_MESSAGE =
 const TWO_FACTOR_CODE_TTL_MS = 5 * 60 * 1000;
 const MAX_TWO_FACTOR_ATTEMPTS = 5;
 const TWO_FACTOR_GENERIC_ERROR = 'Código inválido ou expirado.';
+// Compared against when the email is unknown, so login takes as long as a
+// real password check and response time does not reveal registered emails.
+// Same cost factor (10) as the hashes created at registration.
+const DUMMY_PASSWORD_HASH =
+  '$2b$10$KYT6khCw5nh/F37eyTgTMO8ZTWSD4pmLwN4n5GkeObgLEEp2ficim';
 
 @Injectable()
 export class AuthService {
@@ -32,7 +37,10 @@ export class AuthService {
     dto: LoginDto,
   ): Promise<{ access_token: string } | { twoFactorRequired: true; loginToken: string }> {
     const user = await this.usersService.findByEmail(dto.email);
-    if (!user) throw new UnauthorizedException('Credenciais inválidas.');
+    if (!user) {
+      await bcrypt.compare(dto.password, DUMMY_PASSWORD_HASH);
+      throw new UnauthorizedException('Credenciais inválidas.');
+    }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Credenciais inválidas.');

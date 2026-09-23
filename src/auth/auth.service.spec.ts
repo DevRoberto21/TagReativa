@@ -7,6 +7,18 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 
+// Wraps the real compare so tests can assert on calls; ES namespace
+// exports cannot be redefined by jest.spyOn.
+jest.mock('bcrypt', () => {
+  const actual = jest.requireActual<typeof import('bcrypt')>('bcrypt');
+  return {
+    ...actual,
+    compare: jest.fn((data: string, encrypted: string) =>
+      actual.compare(data, encrypted),
+    ),
+  };
+});
+
 describe('AuthService', () => {
   let service: AuthService;
   let usersService: { findByEmail: jest.Mock };
@@ -292,6 +304,20 @@ describe('AuthService', () => {
       ).rejects.toThrow('Credenciais inválidas.');
       expect(prisma.twoFactorCode.create).not.toHaveBeenCalled();
       expect(emailService.send).not.toHaveBeenCalled();
+    });
+
+    it('still runs a bcrypt comparison for an unknown email (timing side-channel guard)', async () => {
+      usersService.findByEmail.mockResolvedValue(null);
+      const compare = bcrypt.compare as jest.Mock;
+      compare.mockClear();
+
+      await expect(
+        service.login({ email: 'nobody@example.com', password: 'whatever' }),
+      ).rejects.toThrow('Credenciais inválidas.');
+      expect(compare).toHaveBeenCalledWith(
+        'whatever',
+        expect.stringMatching(/^\$2[aby]\$10\$/),
+      );
     });
   });
 
