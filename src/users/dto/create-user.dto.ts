@@ -2,11 +2,11 @@ import {
   IsEmail,
   IsString,
   Matches,
-  MinLength,
   IsInt,
   IsOptional,
   Min,
 } from 'class-validator';
+import { IsPasswordPolicy } from '../../auth/password-policy';
 
 export class CreateUserDto {
   @IsString()
@@ -15,7 +15,7 @@ export class CreateUserDto {
   @IsEmail()
   email!: string;
 
-  @MinLength(6)
+  @IsPasswordPolicy()
   password!: string;
 
   @Matches(/^55\d{2}\d{8,9}$/, {

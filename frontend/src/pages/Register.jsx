@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import PageContainer from '../components/PageContainer';
+import { PASSWORD_POLICY_MESSAGE, meetsPasswordPolicy } from '../utils/passwordPolicy';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -15,6 +16,10 @@ export default function Register() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    if (!meetsPasswordPolicy(form.password)) {
+      setError(PASSWORD_POLICY_MESSAGE);
+      return;
+    }
     if (form.password !== form.confirm) {
       setError('As senhas não coincidem.');
       return;
@@ -91,8 +96,8 @@ export default function Register() {
             </div>
 
             <input style={styles.input} name="age" type="number" placeholder="Idade (Mínimo 18 anos)" value={form.age} onChange={handleChange} min={18} required />
-            <input style={styles.input} name="password" type="password" placeholder="Definir Senha" value={form.password} onChange={handleChange} required />
-            <input style={styles.input} name="confirm" type="password" placeholder="Confirmar Senha" value={form.confirm} onChange={handleChange} required />
+            <input style={styles.input} name="password" type="password" placeholder="Definir Senha (mín. 8, letra e número)" value={form.password} onChange={handleChange} required minLength={8} />
+            <input style={styles.input} name="confirm" type="password" placeholder="Confirmar Senha" value={form.confirm} onChange={handleChange} required minLength={8} />
 
             <div style={styles.notice}>
               O WhatsApp é o canal exclusivo de telemetria e resgate. Os dados de contato permanecerão ocultos e só serão disparados caso o dispositivo mude para o status "Perdido".

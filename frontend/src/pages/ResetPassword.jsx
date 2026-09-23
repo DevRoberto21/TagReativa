@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import PageContainer from '../components/PageContainer';
+import { PASSWORD_POLICY_MESSAGE, meetsPasswordPolicy } from '../utils/passwordPolicy';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -15,6 +16,10 @@ export default function ResetPassword() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    if (!meetsPasswordPolicy(newPassword)) {
+      setError(PASSWORD_POLICY_MESSAGE);
+      return;
+    }
     if (newPassword !== confirm) {
       setError('As senhas não coincidem.');
       return;
@@ -45,11 +50,11 @@ export default function ResetPassword() {
             <input
               style={styles.input}
               type="password"
-              placeholder="Nova senha"
+              placeholder="Nova senha (mín. 8, letra e número)"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
-              minLength={6}
+              minLength={8}
             />
             <input
               style={styles.input}
@@ -58,7 +63,7 @@ export default function ResetPassword() {
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               required
-              minLength={6}
+              minLength={8}
             />
             {error && <p style={styles.error}>{error}</p>}
             <button style={styles.button} type="submit" disabled={submitting}>
