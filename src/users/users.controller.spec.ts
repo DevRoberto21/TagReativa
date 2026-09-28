@@ -21,7 +21,6 @@ describe('UsersController', () => {
             findMe: jest.fn(),
             updateMe: jest.fn(),
             deleteMe: jest.fn(),
-            testCallMeBot: jest.fn(),
           },
         },
       ],

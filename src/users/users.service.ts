@@ -2,11 +2,9 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
-  BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CallMeBotService } from '../callmebot/callmebot.service';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -14,10 +12,7 @@ import { DeleteAccountDto } from './dto/delete-account.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(
-    private prisma: PrismaService,
-    private callMeBot: CallMeBotService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateUserDto) {
     const exists = await this.prisma.user.findUnique({
@@ -59,10 +54,12 @@ export class UsersService {
         whatsapp: true,
         age: true,
         twoFactorEnabled: true,
+        telegramChatId: true,
       },
     });
     if (!user) throw new NotFoundException('Usuário não encontrado.');
-    return user;
+    const { telegramChatId, ...profile } = user;
+    return { ...profile, telegramLinked: telegramChatId != null };
   }
   async updateMe(userId: string, dto: UpdateUserDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -74,7 +71,6 @@ export class UsersService {
         name: dto.name,
         whatsapp: dto.whatsapp,
         age: dto.age,
-        callMeBotApiKey: dto.callMeBotApiKey,
       },
       select: {
         id: true,
@@ -94,24 +90,5 @@ export class UsersService {
     if (!valid) throw new ForbiddenException('Senha incorreta.');
 
     await this.prisma.user.delete({ where: { id: userId } });
-  }
-
-  async testCallMeBot(userId: string, apiKey: string): Promise<void> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user?.whatsapp) {
-      throw new BadRequestException('Número de WhatsApp não cadastrado.');
-    }
-
-    const delivered = await this.callMeBot.send(
-      user.whatsapp,
-      apiKey,
-      '✅ TagReativa: configuração confirmada. Você receberá alertas aqui quando seu pet for escaneado.',
-    );
-
-    if (!delivered) {
-      throw new BadRequestException(
-        'Código inválido ou WhatsApp não autorizado no bot.',
-      );
-    }
   }
 }

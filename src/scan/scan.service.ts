@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CallMeBotService } from '../callmebot/callmebot.service';
+import { TelegramService } from '../telegram/telegram.service';
 import { EmailService } from '../email/email.service';
 import { LocationSource, NotificationChannel } from '@prisma/client';
 
@@ -16,7 +16,7 @@ export interface ScanDto {
 
 // Alerts are rate-limited per pet so repeated scans (reloads, pranks) do not
 // flood the owner. The scan itself is always recorded and the owner contact is
-// always returned; only the e-mail/WhatsApp dispatch is skipped.
+// always returned; only the e-mail/Telegram dispatch is skipped.
 const ALERT_WINDOW_MS = 30 * 60 * 1000;
 const MAX_ALERTS_PER_DEVICE = 3;
 const MAX_ALERTS_PER_PET = 10;
@@ -31,7 +31,7 @@ interface IpApiResponse {
 export class ScanService {
   constructor(
     private prisma: PrismaService,
-    private callMeBot: CallMeBotService,
+    private telegram: TelegramService,
     private emailService: EmailService,
   ) {}
 
@@ -75,22 +75,30 @@ export class ScanService {
     }
   }
 
-  private async notifyWhatsapp(
+  private async notifyTelegram(
     scanLogId: string,
-    whatsapp: string,
-    apiKey: string,
+    chatId: string,
     message: string,
+    location: { latitude: number; longitude: number } | null,
   ): Promise<void> {
     let delivered: boolean;
     try {
-      delivered = await this.callMeBot.send(whatsapp, apiKey, message);
+      delivered = await this.telegram.sendMessage(chatId, message);
+      // The pin is a complement to the text; skip it if the text failed.
+      if (delivered && location) {
+        await this.telegram.sendLocation(
+          chatId,
+          location.latitude,
+          location.longitude,
+        );
+      }
     } catch (err: unknown) {
-      console.error('[Notification] Falha ao enviar WhatsApp:', err);
+      console.error('[Notification] Falha ao enviar Telegram:', err);
       return;
     }
     await this.persistNotification(
       scanLogId,
-      NotificationChannel.WHATSAPP,
+      NotificationChannel.TELEGRAM,
       delivered,
     );
   }
@@ -175,9 +183,10 @@ export class ScanService {
     });
 
     if (alertSent) {
-      const hasLocation = latitude != null && longitude != null;
+      const location =
+        latitude != null && longitude != null ? { latitude, longitude } : null;
       const isGps = locationSource === LocationSource.GPS;
-      const message = hasLocation
+      const message = location
         ? isGps
           ? `Seu pet ${pet.name} foi encontrado! 📍 Localização GPS: https://maps.google.com/?q=${latitude},${longitude}`
           : `Seu pet ${pet.name} foi encontrado! O resgatador negou o GPS. Endereço baseado no IP (pode estar impreciso): https://maps.google.com/?q=${latitude},${longitude}`
@@ -185,13 +194,13 @@ export class ScanService {
 
       const dispatches: Promise<void>[] = [];
 
-      if (pet.owner.callMeBotApiKey) {
+      if (pet.owner.telegramChatId) {
         dispatches.push(
-          this.notifyWhatsapp(
+          this.notifyTelegram(
             scanLog.id,
-            pet.owner.whatsapp,
-            pet.owner.callMeBotApiKey,
+            pet.owner.telegramChatId,
             message,
+            location,
           ),
         );
       }

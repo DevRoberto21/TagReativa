@@ -15,6 +15,7 @@ export default function Profile() {
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteMessage, setDeleteMessage] = useState('');
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [telegramLinked, setTelegramLinked] = useState(false);
   const [twoFactorStep, setTwoFactorStep] = useState('idle');
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [twoFactorPassword, setTwoFactorPassword] = useState('');
@@ -27,6 +28,7 @@ export default function Profile() {
         setWhatsapp(r.data.whatsapp);
         setAge(r.data.age ?? '');
         setTwoFactorEnabled(r.data.twoFactorEnabled);
+        setTelegramLinked(r.data.telegramLinked);
       })
       .catch(() => setError('Erro ao carregar perfil do tutor.'));
   }, []);
@@ -123,7 +125,7 @@ export default function Profile() {
             <label style={styles.label}>Nome Completo</label>
             <input style={styles.input} value={name} onChange={e => setName(e.target.value)} required />
 
-            <label style={styles.label}>Canal Telefônico / WhatsApp</label>
+            <label style={styles.label}>Canal Telegram</label>
             <input style={styles.input} value={whatsapp} onChange={e => setWhatsapp(e.target.value)} required />
 
             <label style={styles.label}>Idade (anos)</label>
@@ -140,7 +142,7 @@ export default function Profile() {
           </form>
 
           <button onClick={() => navigate('/configurar-notificacao')} style={styles.notifButton}>
-            Canais de Notificação WhatsApp
+            {telegramLinked ? 'Alertas no Telegram: ativos' : 'Ativar alertas no Telegram'}
           </button>
 
           <div style={styles.twoFactorSection}>

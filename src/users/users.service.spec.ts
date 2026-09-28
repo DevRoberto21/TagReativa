@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { CallMeBotService } from '../callmebot/callmebot.service';
 import { ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 
@@ -19,11 +18,7 @@ describe('UsersService', () => {
       },
     };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UsersService,
-        { provide: PrismaService, useValue: prisma },
-        { provide: CallMeBotService, useValue: { send: jest.fn() } },
-      ],
+      providers: [UsersService, { provide: PrismaService, useValue: prisma }],
     }).compile();
 
     service = module.get<UsersService>(UsersService);
@@ -31,6 +26,32 @@ describe('UsersService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('findMe', () => {
+    it('exposes whether Telegram is linked without leaking the chat id', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        name: 'Roberto',
+        telegramChatId: '42',
+      });
+
+      const result = await service.findMe('user-1');
+
+      expect(result).toMatchObject({ id: 'user-1', telegramLinked: true });
+      expect(result).not.toHaveProperty('telegramChatId');
+    });
+
+    it('reports telegramLinked false when no chat is linked', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        telegramChatId: null,
+      });
+
+      expect(await service.findMe('user-1')).toMatchObject({
+        telegramLinked: false,
+      });
+    });
   });
 
   describe('deleteMe', () => {
