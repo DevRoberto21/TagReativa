@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import api from './services/api';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
@@ -8,11 +10,33 @@ import NewPet from './pages/NewPet';
 import EditPet from './pages/EditPet';
 import Profile from './pages/Profile';
 import ScanPage from './pages/ScanPage';
-import CallMeBotSetup from './pages/CallMeBotSetup';
+import TelegramSetup from './pages/TelegramSetup';
+import EmailAlertsInfo from './pages/EmailAlertsInfo';
 
-function PrivateRoute({ children }) {
+// Telegram is the mandatory alert channel: logged-in pages stay locked until
+// the owner links it. Checked on every page so a later /stop in the bot also
+// sends the owner back to the setup screen.
+function TelegramGate({ children }) {
+  const [linked, setLinked] = useState(null);
+
+  useEffect(() => {
+    api.get('/users/me')
+      .then(r => setLinked(r.data.telegramLinked))
+      // A 401 is handled by the api interceptor; other failures should not
+      // lock the owner out of the app.
+      .catch(() => setLinked(true));
+  }, []);
+
+  if (linked === null) return null;
+  return linked
+    ? children
+    : <Navigate to="/configurar-notificacao" replace state={{ required: true }} />;
+}
+
+function PrivateRoute({ children, requireTelegram = true }) {
   const token = localStorage.getItem('access_token');
-  return token ? children : <Navigate to="/login" replace />;
+  if (!token) return <Navigate to="/login" replace />;
+  return requireTelegram ? <TelegramGate>{children}</TelegramGate> : children;
 }
 
 export default function App() {
@@ -28,8 +52,9 @@ export default function App() {
         <Route path="/pets/novo" element={<PrivateRoute><NewPet /></PrivateRoute>} />
         <Route path="/pets/:id/editar" element={<PrivateRoute><EditPet /></PrivateRoute>} />
         <Route path="/perfil" element={<PrivateRoute><Profile /></PrivateRoute>} />
+        <Route path="/configurar-notificacao" element={<PrivateRoute requireTelegram={false}><TelegramSetup /></PrivateRoute>} />
+        <Route path="/alertas-email" element={<PrivateRoute><EmailAlertsInfo /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/login" replace />} />
-        <Route path="/configurar-notificacao" element={<CallMeBotSetup />} />
       </Routes>
     </BrowserRouter>
   );

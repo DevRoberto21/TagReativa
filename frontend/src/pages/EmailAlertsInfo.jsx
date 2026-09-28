@@ -1,32 +1,20 @@
-import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import PageContainer from '../components/PageContainer';
 
-export default function CallMeBotSetup() {
-    const [apiKey, setApiKey] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+// Onboarding step shown after the Telegram link. Email alerts need no setup,
+// so this only tells the owner where they arrive; skipping changes nothing.
+export default function EmailAlertsInfo() {
+    const [email, setEmail] = useState('');
     const navigate = useNavigate();
-    const location = useLocation();
-    const fromNewPet = location.state?.fromNewPet === true;
 
-    async function handleSave() {
-        if (!apiKey.trim()) {
-            setError('Digite o código de autenticação antes de salvar.');
-            return;
-        }
-        setLoading(true);
-        setError('');
-        try {
-            await api.post('/users/me/callmebot-test', { apiKey });
-            await api.patch('/users/me', { callMeBotApiKey: apiKey });
-            navigate('/perfil', { state: { callmebotSuccess: true } });
-        } catch {
-            setError('Código inválido ou dispositivo WhatsApp não autorizado. Verifique os passos.');
-        } finally {
-            setLoading(false);
-        }
+    useEffect(() => {
+        api.get('/users/me').then(r => setEmail(r.data.email)).catch(() => { });
+    }, []);
+
+    function finish() {
+        navigate('/dashboard', { replace: true });
     }
 
     return (
@@ -49,45 +37,21 @@ export default function CallMeBotSetup() {
 
             <div style={styles.contentWrapper}>
                 <header style={styles.header}>
-                    <button onClick={() => navigate('/dashboard')} style={styles.back}>Voltar</button>
-                    <h1 style={styles.title}>Telemetria WhatsApp</h1>
+                    <h1 style={styles.title}>Alertas por e-mail</h1>
                 </header>
 
-                {fromNewPet && (
-                    <div style={styles.notice}>
-                        Dispositivo vinculado com sucesso. Ative o gateway de criptografia do WhatsApp para receber alertas em tempo real sempre que a TagReativa deste pet for escaneada.
-                    </div>
-                )}
-
                 <div style={styles.card}>
-                    <h2 style={styles.cardTitle}>Protocolo de Ativação</h2>
-
+                    <h2 style={styles.cardTitle}>Telegram ativado ✅</h2>
+                    <p style={styles.listItem}>
+                        Além do Telegram, cada alerta também é enviado para {email ? <strong style={styles.strong}>{email}</strong> : 'o seu e-mail'}. Nada a configurar.
+                    </p>
                     <ol style={styles.list}>
-                        <li style={styles.listItem}>Adicione o terminal automatizado aos seus contactos: <strong style={styles.strong}>+34 623 76 13 63</strong></li>
-                        <li style={styles.listItem}>Transmita a seguinte mensagem de autorização: <code style={styles.code}>I allow callmebot to send me messages</code></li>
-                        <li style={styles.listItem}>Aguarde o retorno do sistema com a sua chave de API pessoal.</li>
-                        <li style={styles.listItem}>Insira o token gerado no campo abaixo para validar a conexão.</li>
+                        <li style={styles.listItem}>Procure o e-mail da <strong style={styles.strong}>TagReativa</strong> também na caixa de spam.</li>
+                        <li style={styles.listItem}>Marque como "não é spam" ou adicione o remetente aos contatos para os próximos alertas chegarem na caixa de entrada.</li>
                     </ol>
 
-                    <input
-                        type="text"
-                        placeholder="Token de autenticação (Chave API)"
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        style={styles.input}
-                    />
-
-                    {error && <p style={styles.error}>{error}</p>}
-
-                    <button onClick={handleSave} disabled={loading} style={styles.button}>
-                        {loading ? 'Sincronizando Canais...' : 'Validar Gateway'}
-                    </button>
-
-                    {fromNewPet && (
-                        <button onClick={() => navigate('/dashboard')} style={styles.skipBtn}>
-                            Pular e Ativar Depois
-                        </button>
-                    )}
+                    <button onClick={finish} style={styles.button}>Entendi, continuar</button>
+                    <button onClick={finish} style={styles.skipBtn}>Pular</button>
                 </div>
             </div>
         </PageContainer>
@@ -107,8 +71,6 @@ const styles = {
     list: { lineHeight: '1.6', paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' },
     listItem: { fontSize: '13px', color: '#40665A', fontWeight: 500 },
     strong: { color: '#1B4332', fontWeight: 600 },
-    code: { background: '#E6EFE9', padding: '2px 6px', borderRadius: '6px', color: '#2D6A4F', fontSize: '12px', fontWeight: 600, fontFamily: 'monospace' },
-    input: { width: '100%', padding: '13px 16px', borderRadius: '12px', border: '1px solid #CBDCD0', background: '#FFF', fontSize: '14px', outline: 'none', color: '#1B4332', boxSizing: 'border-box', marginTop: '8px' },
     button: { width: '100%', padding: '14px', borderRadius: '12px', background: '#2D6A4F', color: '#FFF', fontWeight: 600, fontSize: '14px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(45, 106, 79, 0.15)', transition: 'background 0.2s' },
     skipBtn: { width: '100%', padding: '13px', fontSize: '13px', fontWeight: 600, background: 'transparent', border: '1px solid #CBDCD0', borderRadius: '12px', color: '#52796F', cursor: 'pointer', transition: 'all 0.2s' },
     error: { color: '#E63946', marginTop: '4px', fontSize: '13px', textAlign: 'center', fontWeight: 500, margin: 0 }

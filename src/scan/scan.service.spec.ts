@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { ScanService } from './scan.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { CallMeBotService } from '../callmebot/callmebot.service';
+import { TelegramService } from '../telegram/telegram.service';
 import { EmailService } from '../email/email.service';
 import { NotificationChannel, PetStatus, LocationSource } from '@prisma/client';
 
@@ -13,7 +13,7 @@ describe('ScanService', () => {
     scanLog: { create: jest.Mock; count: jest.Mock };
     notification: { create: jest.Mock };
   };
-  let callMeBot: { send: jest.Mock };
+  let telegram: { sendMessage: jest.Mock; sendLocation: jest.Mock };
   let email: { send: jest.Mock };
 
   const basePet = {
@@ -28,7 +28,7 @@ describe('ScanService', () => {
       name: 'Roberto',
       email: 'owner@example.com',
       whatsapp: '5511999999999',
-      callMeBotApiKey: 'callmebot-key',
+      telegramChatId: '42',
     },
   };
 
@@ -59,14 +59,17 @@ describe('ScanService', () => {
       scanLog: { create: jest.fn(), count: jest.fn() },
       notification: { create: jest.fn() },
     };
-    callMeBot = { send: jest.fn() };
+    telegram = {
+      sendMessage: jest.fn(),
+      sendLocation: jest.fn().mockResolvedValue(true),
+    };
     email = { send: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ScanService,
         { provide: PrismaService, useValue: prisma },
-        { provide: CallMeBotService, useValue: callMeBot },
+        { provide: TelegramService, useValue: telegram },
         { provide: EmailService, useValue: email },
       ],
     }).compile();
@@ -84,21 +87,20 @@ describe('ScanService', () => {
     await expect(service.processScan(scanDto)).rejects.toThrow(
       NotFoundException,
     );
-    expect(callMeBot.send).not.toHaveBeenCalled();
+    expect(telegram.sendMessage).not.toHaveBeenCalled();
     expect(email.send).not.toHaveBeenCalled();
   });
 
-  it('dispatches both WhatsApp and Email when the pet is LOST', async () => {
+  it('dispatches both Telegram and Email when the pet is LOST', async () => {
     prisma.pet.findUnique.mockResolvedValue(basePet);
-    callMeBot.send.mockResolvedValue(true);
+    telegram.sendMessage.mockResolvedValue(true);
     email.send.mockResolvedValue(true);
 
     await service.processScan(scanDto);
 
-    expect(callMeBot.send).toHaveBeenCalledWith(
-      basePet.owner.whatsapp,
-      basePet.owner.callMeBotApiKey,
-      expect.any(String),
+    expect(telegram.sendMessage).toHaveBeenCalledWith(
+      basePet.owner.telegramChatId,
+      expect.stringContaining('Rex'),
     );
     expect(email.send).toHaveBeenCalledWith(
       basePet.owner.email,
@@ -108,7 +110,7 @@ describe('ScanService', () => {
     expect(prisma.notification.create).toHaveBeenCalledWith({
       data: {
         scanLogId: createdScanLog.id,
-        channel: NotificationChannel.WHATSAPP,
+        channel: NotificationChannel.TELEGRAM,
         delivered: true,
       },
     });
@@ -129,15 +131,15 @@ describe('ScanService', () => {
 
       await service.processScan(scanDto);
 
-      expect(callMeBot.send).not.toHaveBeenCalled();
+      expect(telegram.sendMessage).not.toHaveBeenCalled();
       expect(email.send).not.toHaveBeenCalled();
       expect(prisma.notification.create).not.toHaveBeenCalled();
     },
   );
 
-  it('still sends Email and returns normally when WhatsApp delivery fails', async () => {
+  it('still sends Email and returns normally when Telegram delivery fails', async () => {
     prisma.pet.findUnique.mockResolvedValue(basePet);
-    callMeBot.send.mockResolvedValue(false);
+    telegram.sendMessage.mockResolvedValue(false);
     email.send.mockResolvedValue(true);
 
     const result = await service.processScan(scanDto);
@@ -146,25 +148,25 @@ describe('ScanService', () => {
     expect(prisma.notification.create).toHaveBeenCalledWith({
       data: {
         scanLogId: createdScanLog.id,
-        channel: NotificationChannel.WHATSAPP,
+        channel: NotificationChannel.TELEGRAM,
         delivered: false,
       },
     });
     expect(result.pet.name).toBe('Rex');
   });
 
-  it('still sends WhatsApp and does not throw when Email send rejects', async () => {
+  it('still sends Telegram and does not throw when Email send rejects', async () => {
     prisma.pet.findUnique.mockResolvedValue(basePet);
-    callMeBot.send.mockResolvedValue(true);
+    telegram.sendMessage.mockResolvedValue(true);
     email.send.mockRejectedValue(new Error('Brevo down'));
 
     await expect(service.processScan(scanDto)).resolves.toBeDefined();
 
-    expect(callMeBot.send).toHaveBeenCalledTimes(1);
+    expect(telegram.sendMessage).toHaveBeenCalledTimes(1);
     expect(prisma.notification.create).toHaveBeenCalledWith({
       data: {
         scanLogId: createdScanLog.id,
-        channel: NotificationChannel.WHATSAPP,
+        channel: NotificationChannel.TELEGRAM,
         delivered: true,
       },
     });
@@ -173,7 +175,7 @@ describe('ScanService', () => {
 
   it('returns normally when both channels fail', async () => {
     prisma.pet.findUnique.mockResolvedValue(basePet);
-    callMeBot.send.mockResolvedValue(false);
+    telegram.sendMessage.mockResolvedValue(false);
     email.send.mockRejectedValue(new Error('Brevo down'));
 
     await expect(service.processScan(scanDto)).resolves.toBeDefined();
@@ -182,7 +184,7 @@ describe('ScanService', () => {
     expect(prisma.notification.create).toHaveBeenCalledWith({
       data: {
         scanLogId: createdScanLog.id,
-        channel: NotificationChannel.WHATSAPP,
+        channel: NotificationChannel.TELEGRAM,
         delivered: false,
       },
     });
@@ -190,7 +192,7 @@ describe('ScanService', () => {
 
   it('creates exactly one notification row per channel (no duplicates)', async () => {
     prisma.pet.findUnique.mockResolvedValue(basePet);
-    callMeBot.send.mockResolvedValue(true);
+    telegram.sendMessage.mockResolvedValue(true);
     email.send.mockResolvedValue(true);
 
     await service.processScan(scanDto);
@@ -199,8 +201,64 @@ describe('ScanService', () => {
       (call) => call[0].data.channel,
     );
     expect(channelsCreated.sort()).toEqual(
-      [NotificationChannel.EMAIL, NotificationChannel.WHATSAPP].sort(),
+      [NotificationChannel.EMAIL, NotificationChannel.TELEGRAM].sort(),
     );
+  });
+
+  describe('Telegram location pin', () => {
+    beforeEach(() => {
+      prisma.pet.findUnique.mockResolvedValue(basePet);
+      telegram.sendMessage.mockResolvedValue(true);
+      email.send.mockResolvedValue(true);
+    });
+
+    it('sends the GPS location after the text message', async () => {
+      await service.processScan({
+        ...scanDto,
+        consentGranted: true,
+        latitude: -8.05,
+        longitude: -34.9,
+      });
+
+      expect(telegram.sendLocation).toHaveBeenCalledWith('42', -8.05, -34.9);
+      const textOrder = telegram.sendMessage.mock.invocationCallOrder[0];
+      const pinOrder = telegram.sendLocation.mock.invocationCallOrder[0];
+      expect(textOrder).toBeLessThan(pinOrder);
+    });
+
+    it('does not send a location when none could be resolved', async () => {
+      await service.processScan(scanDto);
+
+      expect(telegram.sendMessage).toHaveBeenCalledTimes(1);
+      expect(telegram.sendLocation).not.toHaveBeenCalled();
+    });
+
+    it('skips the location pin when the text message fails', async () => {
+      telegram.sendMessage.mockResolvedValue(false);
+
+      await service.processScan({
+        ...scanDto,
+        consentGranted: true,
+        latitude: -8.05,
+        longitude: -34.9,
+      });
+
+      expect(telegram.sendLocation).not.toHaveBeenCalled();
+    });
+  });
+
+  it('sends only Email when the owner has not linked Telegram', async () => {
+    prisma.pet.findUnique.mockResolvedValue({
+      ...basePet,
+      owner: { ...basePet.owner, telegramChatId: null },
+    });
+    email.send.mockResolvedValue(true);
+
+    await service.processScan(scanDto);
+
+    expect(telegram.sendMessage).not.toHaveBeenCalled();
+    expect(email.send).toHaveBeenCalledTimes(1);
+    expect(prisma.notification.create).toHaveBeenCalledTimes(1);
   });
 
   describe('alert rate limit', () => {
@@ -222,7 +280,7 @@ describe('ScanService', () => {
 
     beforeEach(() => {
       prisma.pet.findUnique.mockResolvedValue(basePet);
-      callMeBot.send.mockResolvedValue(true);
+      telegram.sendMessage.mockResolvedValue(true);
       email.send.mockResolvedValue(true);
     });
 
@@ -266,7 +324,7 @@ describe('ScanService', () => {
       const result = await service.processScan({ ...scanDto, deviceId });
 
       expect(email.send).not.toHaveBeenCalled();
-      expect(callMeBot.send).not.toHaveBeenCalled();
+      expect(telegram.sendMessage).not.toHaveBeenCalled();
       expect(createdScanData()).toMatchObject({
         deviceId,
         alertSent: false,

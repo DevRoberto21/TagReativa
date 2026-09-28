@@ -21,21 +21,24 @@ enum LocationSource {
 enum NotificationChannel {
   WHATSAPP
   EMAIL
+  TELEGRAM
 }
 
 model User {
-  id                  String                @id @default(uuid())
+  id                  String               @id @default(uuid())
   name                String
-  email               String                @unique
+  email               String               @unique
   passwordHash        String
-  whatsapp            String                @unique
-  callMeBotApiKey     String?
+  whatsapp            String               @unique
+  telegramChatId      String?              @unique
+  telegramLinkedAt    DateTime?
   age                 Int?
-  twoFactorEnabled    Boolean               @default(false)
-  tokenVersion        Int                   @default(0)
+  twoFactorEnabled    Boolean              @default(false)
+  tokenVersion        Int                  @default(0)
   pets                Pet[]
   passwordResetTokens PasswordResetToken[]
   twoFactorCodes      TwoFactorCode[]
+  telegramLinkTokens  TelegramLinkToken[]
 }
 
 model Pet {
@@ -103,4 +106,14 @@ model TwoFactorCode {
   attempts       Int       @default(0)
   usedAt         DateTime?
   createdAt      DateTime  @default(now())
+}
+
+model TelegramLinkToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 }

@@ -39,9 +39,17 @@ export default function Register() {
         password: form.password,
         age,
       });
-      navigate('/login');
     } catch {
       setError('Erro ao criar conta. Verifique os dados.');
+      return;
+    }
+    try {
+      // New accounts never have 2FA on, so login returns the token directly.
+      const { data } = await api.post('/auth/login', { email: form.email, password: form.password });
+      localStorage.setItem('access_token', data.access_token);
+      navigate('/configurar-notificacao', { state: { onboarding: true } });
+    } catch {
+      navigate('/login');
     }
   }
 
@@ -100,7 +108,7 @@ export default function Register() {
             <input style={styles.input} name="confirm" type="password" placeholder="Confirmar Senha" value={form.confirm} onChange={handleChange} required minLength={8} />
 
             <div style={styles.notice}>
-              O WhatsApp é o canal exclusivo de telemetria e resgate. Os dados de contato permanecerão ocultos e só serão disparados caso o dispositivo mude para o status "Perdido".
+              Os alertas de resgate chegam pelo Telegram, que você ativa no próximo passo. Seu número fica oculto e só aparece para quem escanear a tag quando o pet estiver com status "Perdido".
             </div>
 
             {error && <p style={styles.error}>{error}</p>}

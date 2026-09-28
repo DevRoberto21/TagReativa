@@ -23,7 +23,7 @@ interface AuthenticatedRequest {
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   @Post('register')
   @Throttle({ default: { ttl: 60000, limit: 3 } })
@@ -50,15 +50,5 @@ export class UsersController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.usersService.deleteMe(req.user.userId, dto);
-  }
-
-  @Post('me/callmebot-test')
-  @UseGuards(AuthGuard('jwt'))
-  async testCallMeBot(
-    @Request() req: { user: { userId: string } },
-    @Body('apiKey') apiKey: string,
-  ) {
-    await this.usersService.testCallMeBot(req.user.userId, apiKey);
-    return { ok: true };
   }
 }

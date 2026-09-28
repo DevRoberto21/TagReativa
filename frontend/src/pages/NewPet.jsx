@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Cropper from 'react-easy-crop';
 import api from '../services/api';
@@ -14,8 +14,6 @@ export default function NewPet() {
   const [breed, setBreed] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
-  const [isFirstPet, setIsFirstPet] = useState(false);
-
   const {
     photoUrl,
     showCropper,
@@ -32,10 +30,6 @@ export default function NewPet() {
     cancelCrop,
   } = usePhotoUpload();
 
-  useEffect(() => {
-    api.get('/pets').then(r => setIsFirstPet(r.data.length === 0)).catch(() => { });
-  }, []);
-
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -47,14 +41,6 @@ export default function NewPet() {
       if (notes.trim()) payload.notes = notes.trim();
 
       await api.post('/pets', payload);
-
-      if (isFirstPet) {
-        const { data: user } = await api.get('/users/me');
-        if (!user.callMeBotApiKey) {
-          navigate('/configurar-notificacao', { state: { fromNewPet: true } });
-          return;
-        }
-      }
 
       navigate('/dashboard');
     } catch {
