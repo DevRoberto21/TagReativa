@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { PetsModule } from './pets/pets.module';
 import { ScanModule } from './scan/scan.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ScanModule } from './scan/scan.module';
     PetsModule,
     ScanModule,
   ],
+  controllers: [HealthController],
   providers: [
     {
       provide: APP_GUARD,

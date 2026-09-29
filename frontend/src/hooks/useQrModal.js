@@ -5,7 +5,8 @@ export function useQrModal() {
     const [qrModal, setQrModal] = useState(null);
 
     async function openQr(pet) {
-        const targetUrl = pet.qrCodeUrl || `http://localhost:3000/scan/${pet.id}`;
+        // The scan page lives on the frontend, so fall back to this app's own origin.
+        const targetUrl = pet.qrCodeUrl || `${window.location.origin}/scan/${pet.id}`;
         try {
             const generatedBase64 = await QRCode.toDataURL(targetUrl, {
                 margin: 2,

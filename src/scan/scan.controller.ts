@@ -15,12 +15,10 @@ export class ScanController {
     @Body() body: ScanBodyDto,
     @Req() req: Request,
   ) {
-    const ipAddress =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0] ??
-      req.socket.remoteAddress ??
-      'unknown';
+    // req.ip honours the 'trust proxy' setting in main.ts, so a client-supplied
+    // x-forwarded-for entry cannot spoof the address.
+    const ipAddress = req.ip ?? req.socket.remoteAddress ?? 'unknown';
 
-    console.log('[SCAN] ip:', ipAddress, '| x-forwarded-for:', req.headers['x-forwarded-for']);
     return this.scanService.processScan({
       petId,
       latitude: body.latitude,
