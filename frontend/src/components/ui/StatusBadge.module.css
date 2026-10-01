@@ -18,6 +18,10 @@
   --tone: var(--alert);
 }
 
+.muted {
+  --tone: var(--text-muted);
+}
+
 .dot {
   position: relative;
   width: 7px;

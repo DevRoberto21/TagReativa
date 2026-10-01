@@ -25,3 +25,11 @@ export const reveal = {
   exit: { opacity: 0, height: 0 },
   transition: { duration: 0.24, ease: EASE },
 };
+
+// Content that replaces other content in the same spot.
+export const swap = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0 },
+  transition: { duration: 0.2, ease: EASE },
+};
