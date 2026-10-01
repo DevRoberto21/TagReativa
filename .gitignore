@@ -148,3 +148,6 @@ vite.config.ts.timestamp-*
 graphify-out/
 strix_runs/
 .gitattributes
+
+# Local design specs and implementation plans
+docs/superpowers/

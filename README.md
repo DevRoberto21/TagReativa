@@ -41,7 +41,6 @@ Tag com QR code para pets. O tutor cadastra o animal, imprime o QR code e prende
 │       ├── services/    # cliente Axios
 │       ├── styles/      # tokens e estilos globais
 │       └── utils/
-├── docs/superpowers/    # specs e planos de implementação
 └── docker-compose.yml   # PostgreSQL local
 ```
 
@@ -241,7 +240,3 @@ O Telegram é o canal de alerta obrigatório: as telas logadas ficam bloqueadas 
 3. Comando de start: `npm run start:deploy`, que aplica as migrations antes de subir a API.
 4. Defina as variáveis de ambiente, incluindo `FRONTEND_URL`, `TELEGRAM_WEBHOOK_URL` (`https://<sua-api>/telegram/webhook`) e `TELEGRAM_WEBHOOK_SECRET`.
 5. Ajuste `TRUST_PROXY_HOPS` depois de conferir o `req.ip` em produção. Com o valor errado, todos os clientes dividem o mesmo limite de requisições.
-
-## Documentação de projeto
-
-As specs e os planos de implementação de cada funcionalidade ficam em `docs/superpowers/`.
