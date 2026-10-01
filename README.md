@@ -229,14 +229,3 @@ O Telegram é o canal de alerta obrigatório: as telas logadas ficam bloqueadas 
 - Nome e contato do tutor só aparecem na página de scan quando o pet está marcado como perdido.
 - Helmet e CORS restrito a `localhost:5173` e `FRONTEND_URL`.
 
-## Deploy
-
-**Frontend (Vercel):** aponte o projeto para a pasta `frontend/` e defina `VITE_API_URL` com a URL da API. O `vercel.json` redireciona todas as rotas para `index.html`.
-
-**Backend (Render + Neon):**
-
-1. Crie o banco no Neon e use a string de conexão em `DATABASE_URL`.
-2. Comando de build: `npm install && npx prisma generate && npm run build`.
-3. Comando de start: `npm run start:deploy`, que aplica as migrations antes de subir a API.
-4. Defina as variáveis de ambiente, incluindo `FRONTEND_URL`, `TELEGRAM_WEBHOOK_URL` (`https://<sua-api>/telegram/webhook`) e `TELEGRAM_WEBHOOK_SECRET`.
-5. Ajuste `TRUST_PROXY_HOPS` depois de conferir o `req.ip` em produção. Com o valor errado, todos os clientes dividem o mesmo limite de requisições.
