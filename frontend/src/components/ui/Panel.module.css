@@ -1,0 +1,46 @@
+.panel {
+  --panel-accent: var(--signal);
+  position: relative;
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  transition: border-color var(--dur) var(--ease);
+}
+
+.alert {
+  --panel-accent: var(--alert);
+  border-color: color-mix(in srgb, var(--alert) 40%, var(--line));
+}
+
+.signal {
+  border-color: color-mix(in srgb, var(--signal) 35%, var(--line));
+}
+
+/* Viewfinder corners: top-left and bottom-right. */
+.brackets::before,
+.brackets::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 0 solid var(--panel-accent);
+  pointer-events: none;
+  transition: border-color var(--dur) var(--ease);
+}
+
+.brackets::before {
+  top: -1px;
+  left: -1px;
+  border-top-width: 2px;
+  border-left-width: 2px;
+  border-top-left-radius: var(--radius);
+}
+
+.brackets::after {
+  right: -1px;
+  bottom: -1px;
+  border-right-width: 2px;
+  border-bottom-width: 2px;
+  border-bottom-right-radius: var(--radius);
+}

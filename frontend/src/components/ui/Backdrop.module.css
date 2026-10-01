@@ -1,0 +1,64 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg);
+}
+
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--line-strong) 1px, transparent 1.5px);
+  background-size: 28px 28px;
+  opacity: 0.55;
+  mask-image: radial-gradient(ellipse at 50% 25%, black 10%, transparent 80%);
+}
+
+/* A circle centred on the top-right corner: only one quadrant shows. */
+.radar {
+  position: absolute;
+  top: -60vmax;
+  right: -60vmax;
+  width: 120vmax;
+  height: 120vmax;
+  border-radius: 50%;
+  mask-image: radial-gradient(circle, black 0%, transparent 68%);
+}
+
+.rings,
+.sweep {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.rings {
+  background: repeating-radial-gradient(
+    circle,
+    transparent 0 95px,
+    var(--line) 95px 96px
+  );
+}
+
+.sweep {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg 290deg,
+    color-mix(in srgb, var(--signal) 13%, transparent) 360deg
+  );
+  animation: sweep 14s linear infinite;
+}
+
+@keyframes sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sweep {
+    display: none;
+  }
+}

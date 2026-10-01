@@ -1,0 +1,34 @@
+.notice {
+  --tone: var(--text-muted);
+  padding: var(--space-3) 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--surface-raised);
+  border-left: 2px solid var(--tone);
+  border-radius: var(--radius-sm) var(--radius) var(--radius) var(--radius-sm);
+}
+
+.notice a {
+  color: var(--tone);
+  font-weight: 600;
+}
+
+.info {
+  --tone: var(--signal);
+}
+
+.success {
+  --tone: var(--signal);
+  background: var(--signal-dim);
+}
+
+.warn {
+  --tone: var(--warn);
+  background: var(--warn-dim);
+}
+
+.error {
+  --tone: var(--alert);
+  background: var(--alert-dim);
+}

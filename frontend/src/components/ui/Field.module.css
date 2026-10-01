@@ -1,0 +1,97 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.control {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 12px 14px;
+  font-size: 16px; /* 16px stops iOS from zooming on focus */
+  color: var(--text);
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  outline: none;
+  appearance: none;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+.input:hover {
+  border-color: var(--line-strong);
+}
+
+.input:focus-visible {
+  border-color: var(--signal);
+  outline: 2px solid color-mix(in srgb, var(--signal) 35%, transparent);
+  outline-offset: 0;
+}
+
+.textarea {
+  min-height: 104px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--signal);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-right: 0;
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.withPrefix {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+/* Chevron for the select, drawn with borders. */
+.selectWrap::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid var(--text-muted);
+  border-bottom: 1.5px solid var(--text-muted);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+.selectWrap .input {
+  padding-right: 40px;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}

@@ -1,0 +1,32 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--overlay);
+}
+
+.panel {
+  --tone: var(--signal);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 360px;
+  max-height: calc(100dvh - var(--space-8));
+  overflow-y: auto;
+  padding: var(--space-6);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-top: 2px solid var(--tone);
+  border-radius: var(--radius);
+  outline: none;
+}
+
+.danger {
+  --tone: var(--alert);
+}
