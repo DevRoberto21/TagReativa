@@ -106,7 +106,7 @@ export default function Dashboard() {
         {pets.map((pet, index) => {
           const lost = pet.status === 'LOST';
           return (
-            <Panel key={pet.id} layout custom={index} tone={lost ? 'alert' : 'default'} className={styles.card}>
+            <Panel key={pet.id} layout custom={index} tone={lost ? 'alert' : 'default'} brackets={false} className={styles.card}>
               <div className={styles.cardTop}>
                 <PetAvatar pet={pet} lost={lost} ping={lost} />
                 <div className={styles.info}>

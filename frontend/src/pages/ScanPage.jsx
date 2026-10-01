@@ -119,7 +119,7 @@ export default function ScanPage() {
             <>
               <p className={styles.sub}>Este animal foi reportado como perdido. Utilize o canal abaixo para alertar o tutor:</p>
               {!ownerNotified && (
-                <Notice tone="warn">O tutor já foi avisado recentemente. Fale direto com ele pelo WhatsApp abaixo.</Notice>
+                <Notice tone="warn" className={styles.notice}>O tutor já foi avisado recentemente. Fale direto com ele pelo WhatsApp abaixo.</Notice>
               )}
               {owner?.name && (
                 <p className={styles.owner}>Tutor: {owner.name}</p>
@@ -129,7 +129,7 @@ export default function ScanPage() {
                   Contatar Tutor via WhatsApp
                 </Button>
               ) : (
-                <Notice tone="error">Contato indisponível no momento.</Notice>
+                <Notice tone="error" className={styles.notice}>Contato indisponível no momento.</Notice>
               )}
             </>
           ) : (

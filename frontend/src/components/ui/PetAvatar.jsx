@@ -10,7 +10,8 @@ export default function PetAvatar({ pet, size = 56, width = 200, lost = false, p
   return (
     <div
       className={cx(styles.avatar, lost && styles.lost, className)}
-      style={{ '--size': `${size}px` }}
+      // Large avatars get a shorter ping so the rings stay clear of nearby text.
+      style={{ '--size': `${size}px`, '--ping-scale': size > 80 ? 1.18 : 1.45 }}
     >
       {ping && (
         <>
