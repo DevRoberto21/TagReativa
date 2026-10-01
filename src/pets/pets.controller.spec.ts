@@ -49,8 +49,6 @@ describe('PetsController', () => {
     const result = controller.getPhotoUploadSignature();
 
     expect(result).toEqual(mockSignature);
-    expect(cloudinaryService.generateUploadSignature).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(cloudinaryService.generateUploadSignature).toHaveBeenCalledTimes(1);
   });
 });

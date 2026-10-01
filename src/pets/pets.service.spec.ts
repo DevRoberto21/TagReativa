@@ -11,7 +11,15 @@ describe('PetsService', () => {
         PetsService,
         {
           provide: PrismaService,
-          useValue: { pet: { findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn() } },
+          useValue: {
+            pet: {
+              findUnique: jest.fn(),
+              findMany: jest.fn(),
+              create: jest.fn(),
+              update: jest.fn(),
+              delete: jest.fn(),
+            },
+          },
         },
       ],
     }).compile();
