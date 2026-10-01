@@ -1,27 +1,29 @@
+import { useId } from 'react';
+import Modal from './ui/Modal';
+import Button from './ui/Button';
+import { useLastValue } from '../hooks/useLastValue';
+import styles from './ModalParts.module.css';
+
 export default function QrModal({ qrModal, onDownload, onDownloadPng, onClose }) {
-    if (!qrModal) return null;
+    const titleId = useId();
+    const shown = useLastValue(qrModal);
 
     return (
-        <div style={styles.overlay} onClick={onClose}>
-            <div style={styles.modal} onClick={e => e.stopPropagation()}>
-                <h2 style={styles.modalTitle}>Identificador — {qrModal.name}</h2>
-                <div style={styles.qrWrapper}>
-                    <img src={qrModal.qr} alt="QR Code" style={styles.qrImg} />
-                </div>
-                <button onClick={onDownloadPng} style={styles.svgBtn}>Baixar Imagem (.PNG)</button>
-                <button onClick={onDownload} style={styles.svgBtn}>Exportar Vetor (.SVG)</button>
-                <button onClick={onClose} style={styles.closeBtn}>Fechar Janela</button>
-            </div>
-        </div>
+        <Modal open={Boolean(qrModal)} onClose={onClose} labelledBy={titleId}>
+            {shown && (
+                <>
+                    <p className={styles.eyebrow}>Identificador</p>
+                    <h2 id={titleId} className={styles.title}>{shown.name}</h2>
+                    <div className={styles.qrPlate}>
+                        <img src={shown.qr} alt="QR Code" className={styles.qrImg} />
+                    </div>
+                    <div className={styles.row}>
+                        <Button variant="secondary" size="sm" onClick={onDownloadPng}>Baixar Imagem (.PNG)</Button>
+                        <Button variant="secondary" size="sm" onClick={onDownload}>Exportar Vetor (.SVG)</Button>
+                    </div>
+                    <Button block onClick={onClose}>Fechar Janela</Button>
+                </>
+            )}
+        </Modal>
     );
 }
-
-const styles = {
-    overlay: { position: 'fixed', inset: 0, background: 'rgba(27, 67, 50, 0.3)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-    modal: { background: '#FFF', borderRadius: '20px', padding: '28px', textAlign: 'center', maxWidth: '320px', width: '90%', boxShadow: '0 20px 40px rgba(0,0,0,0.08)' },
-    modalTitle: { fontSize: '18px', fontWeight: 700, marginBottom: '12px', color: '#1B4332' },
-    qrWrapper: { background: '#F4F7F6', padding: '16px', borderRadius: '12px', display: 'inline-block', marginBottom: '16px' },
-    qrImg: { width: '180px', height: '180px', display: 'block' },
-    svgBtn: { display: 'block', width: '100%', padding: '11px', borderRadius: '10px', background: '#FFF', border: '1px solid #CBDCD0', color: '#2D6A4F', fontWeight: 600, fontSize: '13px', cursor: 'pointer', marginBottom: '8px' },
-    closeBtn: { display: 'block', width: '100%', padding: '11px', borderRadius: '10px', background: '#2D6A4F', color: '#FFF', border: 'none', fontWeight: 600, cursor: 'pointer' },
-};
