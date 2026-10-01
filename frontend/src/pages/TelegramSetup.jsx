@@ -1,7 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import api from '../services/api';
-import PageContainer from '../components/PageContainer';
+import Page from '../components/ui/Page';
+import PageHeader from '../components/ui/PageHeader';
+import Panel from '../components/ui/Panel';
+import Button from '../components/ui/Button';
+import Notice from '../components/ui/Notice';
+import Icon from '../components/ui/Icon';
+import ScanLoader from '../components/ui/ScanLoader';
+import { rise, reveal } from '../components/ui/motionPresets';
+import styles from './Steps.module.css';
 
 const POLL_INTERVAL_MS = 3000;
 // Matches the link token lifetime on the backend.
@@ -79,91 +88,59 @@ export default function TelegramSetup() {
     }
 
     return (
-        <PageContainer style={styles.container}>
-            {/* Fundo Orgânico/Futurista Padronizado */}
-            <svg style={styles.bgSvg} viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
-                <path d="M-100,200 C100,250 150,450 50,600 C-50,750 -200,700 -250,550 Z" fill="url(#leafGrad)" opacity="0.4" filter="blur(40px)" />
-                <path d="M1500,100 C1350,150 1200,300 1300,500 C1400,700 1550,650 1600,500 Z" fill="url(#leafGrad)" opacity="0.35" filter="blur(50px)" />
-                <g stroke="#94D2BD" strokeWidth="1" opacity="0.5" fill="none">
-                    <line x1="200" y1="150" x2="280" y2="110" />
-                    <line x1="1200" y1="400" x2="1280" y2="350" />
-                </g>
-                <defs>
-                    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#40916C" />
-                        <stop offset="100%" stopColor="#A9D6E5" />
-                    </linearGradient>
-                </defs>
-            </svg>
+        <Page>
+            <PageHeader
+                title="Alertas no Telegram"
+                backLabel={linked ? 'Voltar' : 'Sair'}
+                onBack={linked ? () => navigate('/perfil') : handleLogout}
+            />
 
-            <div style={styles.contentWrapper}>
-                <header style={styles.header}>
-                    {linked ? (
-                        <button onClick={() => navigate('/perfil')} style={styles.back}>Voltar</button>
-                    ) : (
-                        <button onClick={handleLogout} style={styles.back}>Sair</button>
-                    )}
-                    <h1 style={styles.title}>Alertas no Telegram</h1>
-                </header>
-
-                {linked === false && (
-                    <div style={styles.notice}>
+            {linked === false && (
+                <motion.div variants={rise}>
+                    <Notice>
                         {onboarding ? 'Conta criada! ' : ''}Para usar a TagReativa, ative os alertas no Telegram. É por lá que você fica sabendo na hora, com a localização no mapa, quando a tag do seu pet perdido for escaneada.
-                    </div>
+                    </Notice>
+                </motion.div>
+            )}
+
+            <Panel className={styles.card}>
+                {linked === true && (
+                    <>
+                        <h2 className={styles.cardTitle}><Icon name="check" size={18} />Alertas ativos</h2>
+                        <p className={styles.text}>
+                            Seu Telegram está vinculado. Quando a tag de um pet marcado como perdido for escaneada, você recebe uma mensagem com a localização.
+                        </p>
+                    </>
                 )}
 
-                <div style={styles.card}>
-                    {linked === true && (
-                        <>
-                            <h2 style={styles.cardTitle}>Alertas ativos</h2>
-                            <p style={styles.listItem}>
-                                Seu Telegram está vinculado. Quando a tag de um pet marcado como perdido for escaneada, você recebe uma mensagem com a localização.
-                            </p>
-                        </>
-                    )}
+                {linked === false && (
+                    <>
+                        <h2 className={styles.cardTitle}>Como ativar</h2>
+                        <ol className={styles.list}>
+                            <li>Tenha o Telegram instalado no celular ou computador.</li>
+                            <li>Toque em <strong>Ativar no Telegram</strong>. O app abre na conversa com o bot da TagReativa.</li>
+                            <li>Toque em <strong>Iniciar</strong> no Telegram. Pronto: esta página atualiza sozinha.</li>
+                        </ol>
 
-                    {linked === false && (
-                        <>
-                            <h2 style={styles.cardTitle}>Como ativar</h2>
-                            <ol style={styles.list}>
-                                <li style={styles.listItem}>Tenha o Telegram instalado no celular ou computador.</li>
-                                <li style={styles.listItem}>Toque em <strong style={styles.strong}>Ativar no Telegram</strong>. O app abre na conversa com o bot da TagReativa.</li>
-                                <li style={styles.listItem}>Toque em <strong style={styles.strong}>Iniciar</strong> no Telegram. Pronto: esta página atualiza sozinha.</li>
-                            </ol>
-
+                        <AnimatePresence initial={false}>
                             {waiting && (
-                                <p style={styles.notice}>
-                                    Aguardando confirmação no Telegram... Se o app não abriu, <a href={linkUrl} target="_blank" rel="noopener noreferrer" style={styles.strong}>toque aqui</a>.
-                                </p>
+                                <motion.div className={styles.waiting} {...reveal}>
+                                    <ScanLoader compact label="Aguardando confirmação no Telegram..." />
+                                    <Notice>
+                                        Se o app não abriu, <a href={linkUrl} target="_blank" rel="noopener noreferrer">toque aqui</a>.
+                                    </Notice>
+                                </motion.div>
                             )}
+                        </AnimatePresence>
 
-                            <button onClick={handleActivate} disabled={loading} style={styles.button}>
-                                {loading ? 'Gerando link...' : waiting ? 'Gerar novo link' : 'Ativar no Telegram'}
-                            </button>
+                        <Button block onClick={handleActivate} disabled={loading}>
+                            {loading ? 'Gerando link...' : waiting ? 'Gerar novo link' : 'Ativar no Telegram'}
+                        </Button>
+                    </>
+                )}
 
-                        </>
-                    )}
-
-                    {error && <p style={styles.error}>{error}</p>}
-                </div>
-            </div>
-        </PageContainer>
+                {error && <Notice tone="error">{error}</Notice>}
+            </Panel>
+        </Page>
     );
 }
-
-const styles = {
-    container: { position: 'relative', overflowX: 'hidden', background: 'linear-gradient(135deg, #F0F4F2 0%, #E2ECE9 50%, #D4E5E0 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' },
-    bgSvg: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 },
-    contentWrapper: { position: 'relative', zIndex: 2, padding: '32px 16px', width: '100%', maxWidth: '480px', boxSizing: 'border-box' },
-    header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' },
-    back: { background: 'none', border: 'none', fontSize: '14px', color: '#40665A', cursor: 'pointer', fontWeight: 600, padding: 0 },
-    title: { fontSize: '20px', fontWeight: 700, color: '#1B4332', margin: 0, letterSpacing: '-0.5px' },
-    card: { background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRadius: '24px', padding: '32px 24px', boxSizing: 'border-box', boxShadow: '0 12px 40px rgba(45, 106, 79, 0.04)', border: '1px solid rgba(255, 255, 255, 0.6)', display: 'flex', flexDirection: 'column', gap: '16px' },
-    cardTitle: { fontSize: '14px', fontWeight: 700, color: '#1B4332', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 4px' },
-    notice: { background: '#EAF7F0', border: '1px solid #C6EDD4', borderRadius: '12px', padding: '14px', fontSize: '12px', color: '#2D6A4F', lineHeight: '1.5', fontWeight: 500, marginBottom: '16px' },
-    list: { lineHeight: '1.6', paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' },
-    listItem: { fontSize: '13px', color: '#40665A', fontWeight: 500 },
-    strong: { color: '#1B4332', fontWeight: 600 },
-    button: { width: '100%', padding: '14px', borderRadius: '12px', background: '#2D6A4F', color: '#FFF', fontWeight: 600, fontSize: '14px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(45, 106, 79, 0.15)', transition: 'background 0.2s' },
-    error: { color: '#E63946', marginTop: '4px', fontSize: '13px', textAlign: 'center', fontWeight: 500, margin: 0 }
-};

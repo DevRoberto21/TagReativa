@@ -1,0 +1,54 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.text {
+  color: var(--text-muted);
+}
+
+/* Numbered steps with mono counters. */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+  counter-reset: step;
+}
+
+.list li {
+  position: relative;
+  padding-left: 40px;
+  color: var(--text-muted);
+  counter-increment: step;
+}
+
+.list li::before {
+  content: counter(step, decimal-leading-zero);
+  position: absolute;
+  top: 1px;
+  left: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--signal);
+}
+
+.waiting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
