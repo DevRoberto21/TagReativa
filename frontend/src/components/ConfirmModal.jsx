@@ -1,34 +1,41 @@
-export default function ConfirmModal({ confirmModal, onConfirm, onClose }) {
-    if (!confirmModal) return null;
+import { useId } from 'react';
+import Modal from './ui/Modal';
+import Button from './ui/Button';
+import { useLastValue } from '../hooks/useLastValue';
+import styles from './ModalParts.module.css';
+
+// Without `children` it asks about the pet status change in `confirmModal`.
+// Other callers pass any truthy `confirmModal` plus their own text.
+export default function ConfirmModal({
+    confirmModal,
+    onConfirm,
+    onClose,
+    title = 'Alterar Estado Operacional',
+    confirmLabel = 'Confirmar Alteração',
+    tone,
+    children,
+}) {
+    const titleId = useId();
+    const shown = useLastValue(confirmModal);
+    const danger = tone ? tone === 'danger' : shown?.toStatus === 'PERDIDO';
 
     return (
-        <div style={styles.overlay} onClick={onClose}>
-            <div style={styles.modal} onClick={e => e.stopPropagation()}>
-                <h2 style={styles.modalTitle}>Alterar Estado Operacional</h2>
-                <p style={styles.modalText}>
-                    Confirmar alteração de status de <strong>{confirmModal.pet.name}</strong> para{' '}
-                    <strong>{confirmModal.toStatus}</strong>?
-                </p>
-                <button
-                    onClick={onConfirm}
-                    style={{
-                        ...styles.confirmBtn,
-                        background: confirmModal.toStatus === 'PERDIDO' ? '#E63946' : '#2D6A4F',
-                    }}
-                >
-                    Confirmar Alteração
-                </button>
-                <button onClick={onClose} style={styles.cancelBtn}>Cancelar</button>
-            </div>
-        </div>
+        <Modal open={Boolean(confirmModal)} onClose={onClose} labelledBy={titleId} tone={danger ? 'danger' : 'default'}>
+            {shown && (
+                <>
+                    <h2 id={titleId} className={styles.title}>{title}</h2>
+                    <p className={styles.text}>
+                        {children ?? (
+                            <>
+                                Confirmar alteração de status de <strong>{shown.pet.name}</strong> para{' '}
+                                <strong>{shown.toStatus}</strong>?
+                            </>
+                        )}
+                    </p>
+                    <Button variant={danger ? 'alert' : 'primary'} block onClick={onConfirm}>{confirmLabel}</Button>
+                    <Button variant="secondary" block onClick={onClose}>Cancelar</Button>
+                </>
+            )}
+        </Modal>
     );
 }
-
-const styles = {
-    overlay: { position: 'fixed', inset: 0, background: 'rgba(27, 67, 50, 0.3)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-    modal: { background: '#FFF', borderRadius: '20px', padding: '28px', textAlign: 'center', maxWidth: '320px', width: '90%', boxShadow: '0 20px 40px rgba(0,0,0,0.08)' },
-    modalTitle: { fontSize: '18px', fontWeight: 700, marginBottom: '12px', color: '#1B4332' },
-    modalText: { fontSize: '13px', color: '#40665A', marginBottom: '20px', lineHeight: '1.5' },
-    confirmBtn: { display: 'block', width: '100%', padding: '11px', borderRadius: '10px', color: '#FFF', border: 'none', fontWeight: 600, fontSize: '13px', cursor: 'pointer', marginBottom: '8px' },
-    cancelBtn: { display: 'block', width: '100%', padding: '11px', borderRadius: '10px', background: '#FFF', border: '1px solid #CBDCD0', color: '#2D6A4F', fontWeight: 600, fontSize: '13px', cursor: 'pointer' },
-};

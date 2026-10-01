@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import Cropper from 'react-easy-crop';
 import api from '../services/api';
 import { usePhotoUpload } from '../hooks/usePhotoUpload';
-import PageContainer from '../components/PageContainer';
-import { cloudinaryUrl } from '../utils/cloudinaryUrl';
+import PhotoPicker from '../components/PhotoPicker';
+import ConfirmModal from '../components/ConfirmModal';
+import Page from '../components/ui/Page';
+import PageHeader from '../components/ui/PageHeader';
+import Panel from '../components/ui/Panel';
+import Field from '../components/ui/Field';
+import Button from '../components/ui/Button';
+import Notice from '../components/ui/Notice';
 
 export default function EditPet() {
   const navigate = useNavigate();
@@ -16,23 +21,10 @@ export default function EditPet() {
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  const {
-    photoUrl,
-    setPhotoUrl,
-    showCropper,
-    uploading,
-    uploadError,
-    rawImage,
-    crop,
-    setCrop,
-    zoom,
-    setZoom,
-    handleFileChange,
-    onCropComplete,
-    handleCropConfirm,
-    cancelCrop,
-  } = usePhotoUpload();
+  const upload = usePhotoUpload();
+  const { photoUrl, setPhotoUrl, uploadError } = upload;
 
   useEffect(() => {
     api.get(`/pets/${id}`)
@@ -64,7 +56,7 @@ export default function EditPet() {
   }
 
   async function handleDelete() {
-    if (!window.confirm('Desvincular e remover esta Tag permanentemente?')) return;
+    setConfirmingDelete(false);
     setDeleting(true);
     try {
       await api.delete(`/pets/${id}`);
@@ -77,108 +69,46 @@ export default function EditPet() {
   }
 
   return (
-    <PageContainer style={styles.container}>
-      <svg style={styles.bgSvg} viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
-        <path d="M-100,200 C100,250 150,450 50,600 C-50,750 -200,700 -250,550 Z" fill="url(#leafGrad)" opacity="0.4" filter="blur(40px)" />
-        <path d="M1500,100 C1350,150 1200,300 1300,500 C1400,700 1550,650 1600,500 Z" fill="url(#leafGrad)" opacity="0.35" filter="blur(50px)" />
-        <defs>
-          <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#40916C" /><stop offset="100%" stopColor="#A9D6E5" />
-          </linearGradient>
-        </defs>
-      </svg>
+    <Page>
+      <PageHeader title="Configurações da Tag" onBack={() => navigate('/dashboard')} />
 
-      <div style={styles.contentWrapper}>
-        <header style={styles.header}>
-          <button onClick={() => navigate('/dashboard')} style={styles.back}>Voltar</button>
-          <h1 style={styles.title}>Configurações da Tag</h1>
-        </header>
+      <Panel>
+        <PhotoPicker upload={upload} label="Alterar Registro Fotográfico" />
 
-        {showCropper && (
-          <div style={styles.cropOverlay}>
-            <div style={styles.cropBox}>
-              <div style={styles.cropArea}>
-                <Cropper
-                  image={rawImage} crop={crop} zoom={zoom} aspect={1} cropShape="round" showGrid={false}
-                  onCropChange={setCrop} onZoomChange={setZoom} onCropComplete={onCropComplete}
-                />
-              </div>
-              <input type="range" min={1} max={3} step={0.01} value={zoom} onChange={e => setZoom(Number(e.target.value))} style={styles.slider} />
-              <div style={styles.cropButtons}>
-                <button onClick={cancelCrop} style={styles.cancelButton}>Cancelar</button>
-                <button onClick={handleCropConfirm} disabled={uploading} style={styles.button}>Confirmar</button>
-              </div>
-            </div>
-          </div>
-        )}
+        <form onSubmit={handleSubmit} className="stack">
+          <Field label="Nome Cadastrado" value={name} onChange={e => setName(e.target.value)} required />
 
-        <div style={styles.card}>
-          <div style={styles.photoSection}>
-            <div style={styles.avatarWrapper}>
-              {photoUrl ? <img src={cloudinaryUrl(photoUrl, { width: 200 })} alt="Pet" style={styles.avatar} /> : <div style={styles.avatarPlaceholder}>🐾</div>}
-            </div>
-            <label style={styles.photoButton}>
-              Alterar Registro Fotográfico
-              <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
-            </label>
-          </div>
+          <Field as="select" label="Espécie" value={species} onChange={e => setSpecies(e.target.value)}>
+            <option>Cachorro</option><option>Gato</option><option>Outro</option>
+          </Field>
 
-          <form onSubmit={handleSubmit} style={styles.form}>
-            <label style={styles.label}>Nome Cadastrado</label>
-            <input style={styles.input} value={name} onChange={e => setName(e.target.value)} required />
+          <Field label="Raça" value={breed} onChange={e => setBreed(e.target.value)} />
 
-            <label style={styles.label}>Espécie</label>
-            <select style={styles.select} value={species} onChange={e => setSpecies(e.target.value)}>
-              <option>Cachorro</option><option>Gato</option><option>Outro</option>
-            </select>
+          <Field label="Idade (anos)" type="number" value={age} onChange={e => setAge(e.target.value)} min={1} max={50} />
 
-            <label style={styles.label}>Raça</label>
-            <input style={styles.input} value={breed} onChange={e => setBreed(e.target.value)} />
+          <Field as="textarea" label="Observações de Resgate / Cuidados" value={notes} onChange={e => setNotes(e.target.value)} />
 
-            <label style={styles.label}>Idade (anos)</label>
-            <input style={styles.input} type="number" value={age} onChange={e => setAge(e.target.value)} min={1} max={50} />
+          {(error || uploadError) && <Notice tone="error">{error || uploadError}</Notice>}
+          <Button type="submit" block>Salvar Atualizações</Button>
+        </form>
+      </Panel>
 
-            <label style={styles.label}>Observações de Resgate / Cuidados</label>
-            <textarea style={styles.textarea} value={notes} onChange={e => setNotes(e.target.value)} />
+      <Panel tone="alert">
+        <Button variant="danger" block onClick={() => setConfirmingDelete(true)} disabled={deleting}>
+          {deleting ? 'Removendo do banco...' : 'Excluir e Desvincular Dispositivo'}
+        </Button>
+      </Panel>
 
-            {(error || uploadError) && <p style={styles.error}>{error || uploadError}</p>}
-            <button style={styles.button} type="submit">Salvar Atualizações</button>
-          </form>
-
-          <button onClick={handleDelete} disabled={deleting} style={styles.deleteButton}>
-            {deleting ? 'Removendo do banco...' : 'Excluir e Desvincular Dispositivo'}
-          </button>
-        </div>
-      </div>
-    </PageContainer>
+      <ConfirmModal
+        confirmModal={confirmingDelete || null}
+        onConfirm={handleDelete}
+        onClose={() => setConfirmingDelete(false)}
+        title="Excluir e Desvincular Dispositivo"
+        confirmLabel="Confirmar Exclusão"
+        tone="danger"
+      >
+        Desvincular e remover esta Tag permanentemente?
+      </ConfirmModal>
+    </Page>
   );
 }
-
-const styles = {
-  container: { position: 'relative', overflowX: 'hidden', background: 'linear-gradient(135deg, #F0F4F2 0%, #E2ECE9 50%, #D4E5E0 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' },
-  bgSvg: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 },
-  contentWrapper: { position: 'relative', zIndex: 2, padding: '32px 16px', width: '100%', maxWidth: '480px', boxSizing: 'border-box' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' },
-  back: { background: 'none', border: 'none', fontSize: '14px', color: '#40665A', cursor: 'pointer', fontWeight: 600, padding: 0 },
-  title: { fontSize: '20px', fontWeight: 700, color: '#1B4332', margin: 0, letterSpacing: '-0.5px' },
-  card: { background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRadius: '24px', padding: '32px 24px', boxSizing: 'border-box', boxShadow: '0 12px 40px rgba(45, 106, 79, 0.04)', border: '1px solid rgba(255, 255, 255, 0.6)' },
-  form: { display: 'flex', flexDirection: 'column', gap: '14px' },
-  label: { fontSize: '12px', fontWeight: 700, color: '#2D6A4F', textTransform: 'uppercase', letterSpacing: '0.5px' },
-  input: { padding: '13px 16px', borderRadius: '12px', border: '1px solid #CBDCD0', background: '#FFF', fontSize: '14px', outline: 'none', color: '#1B4332', boxSizing: 'border-box', width: '100%' },
-  select: { padding: '13px 16px', borderRadius: '12px', border: '1px solid #CBDCD0', background: '#FFF', fontSize: '14px', outline: 'none', color: '#1B4332', boxSizing: 'border-box', width: '100%' },
-  textarea: { padding: '13px 16px', borderRadius: '12px', border: '1px solid #CBDCD0', background: '#FFF', fontSize: '14px', outline: 'none', color: '#1B4332', boxSizing: 'border-box', width: '100%', minHeight: '90px', resize: 'vertical', fontFamily: 'inherit' },
-  button: { padding: '14px', borderRadius: '12px', background: '#2D6A4F', color: '#FFF', fontWeight: 600, fontSize: '14px', border: 'none', cursor: 'pointer', marginTop: '6px' },
-  deleteButton: { width: '100%', marginTop: '12px', padding: '13px', borderRadius: '12px', background: '#FFF5F5', color: '#E63946', fontWeight: 600, fontSize: '13px', border: '1px solid #FED7D7', cursor: 'pointer' },
-  error: { color: '#E63946', fontSize: '13px', textAlign: 'center', fontWeight: 500 },
-  photoSection: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '24px' },
-  avatarWrapper: { width: '88px', height: '88px', borderRadius: '50%', overflow: 'hidden', border: '1px solid #CBDCD0', background: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  avatar: { width: '100%', height: '100%', objectFit: 'cover' },
-  avatarPlaceholder: { fontSize: '28px' },
-  photoButton: { fontSize: '13px', color: '#2D6A4F', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' },
-  cropOverlay: { position: 'fixed', inset: 0, background: 'rgba(27, 67, 50, 0.85)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  cropBox: { width: '320px', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' },
-  cropArea: { position: 'relative', width: '280px', height: '280px', borderRadius: '24px', overflow: 'hidden' },
-  slider: { width: '100%', accentColor: '#2D6A4F' },
-  cropButtons: { display: 'flex', gap: '10px', width: '100%' },
-  cancelButton: { flex: 1, padding: '12px', borderRadius: '12px', background: 'transparent', color: '#FFF', fontWeight: 600, fontSize: '14px', border: '1px solid rgba(255,255,255,0.4)', cursor: 'pointer' },
-};

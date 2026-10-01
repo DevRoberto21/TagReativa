@@ -1,0 +1,48 @@
+.title {
+  font-size: 19px;
+  font-weight: 700;
+  font-stretch: 115%;
+  line-height: 1.25;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.text {
+  margin-bottom: var(--space-2);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* The QR code needs a light plate to stay scannable on the dark theme. */
+.qrPlate {
+  align-self: center;
+  margin: var(--space-2) 0;
+  padding: var(--space-3);
+  background: var(--text);
+  border-radius: var(--radius);
+}
+
+.qrImg {
+  display: block;
+  width: 200px;
+  height: 200px;
+  border-radius: var(--radius-sm);
+}
+
+.row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.row > * {
+  flex: 1;
+}

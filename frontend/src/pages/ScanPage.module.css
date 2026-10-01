@@ -1,0 +1,145 @@
+/* Read outdoors by someone who does not know the app: text is 16px or more. */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: 0 var(--space-5) var(--space-6);
+  overflow: hidden;
+  font-size: 16px;
+}
+
+.band {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin: 0 calc(var(--space-5) * -1);
+  padding: 14px var(--space-5);
+  font-size: 17px;
+  font-weight: 700;
+  font-stretch: 112%;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--signal);
+  background: var(--signal-dim);
+  border-bottom: 1px solid color-mix(in srgb, var(--signal) 35%, var(--line));
+}
+
+.bandLost {
+  color: var(--signal-ink);
+  background: var(--alert);
+  border-bottom-color: var(--alert);
+}
+
+.countdown {
+  align-self: center;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  transition: color var(--dur) var(--ease);
+}
+
+.countdownLow {
+  color: var(--warn);
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  text-align: center;
+}
+
+.name {
+  font-size: clamp(36px, 12vw, 48px);
+  font-weight: 800;
+  font-stretch: 125%;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.species {
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.notes {
+  padding: var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.notesText {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.notesEmpty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.action {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.action .notice {
+  font-size: 16px;
+}
+
+.sub {
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.owner {
+  font-weight: 600;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-5);
+  font-size: 16px;
+  text-align: center;
+}
+
+.messageTitle {
+  font-size: 22px;
+  font-weight: 700;
+  font-stretch: 115%;
+}
+
+.messageError {
+  font-weight: 700;
+  color: var(--alert);
+}
+
+.messageSub {
+  margin-bottom: var(--space-2);
+  line-height: 1.5;
+  color: var(--text-muted);
+}

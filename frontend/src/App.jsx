@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, MotionConfig } from 'motion/react';
 import api from './services/api';
+import Backdrop from './components/ui/Backdrop';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
@@ -39,10 +41,14 @@ function PrivateRoute({ children, requireTelegram = true }) {
   return requireTelegram ? <TelegramGate>{children}</TelegramGate> : children;
 }
 
-export default function App() {
+// Keyed on the pathname so the outgoing page can play its exit animation
+// before the next one mounts.
+function AnimatedRoutes() {
+  const location = useLocation();
+
   return (
-    <BrowserRouter>
-      <Routes>
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/esqueci-senha" element={<ForgotPassword />} />
@@ -56,6 +62,17 @@ export default function App() {
         <Route path="/alertas-email" element={<PrivateRoute><EmailAlertsInfo /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
-    </BrowserRouter>
+    </AnimatePresence>
+  );
+}
+
+export default function App() {
+  return (
+    <MotionConfig reducedMotion="user">
+      <BrowserRouter>
+        <Backdrop />
+        <AnimatedRoutes />
+      </BrowserRouter>
+    </MotionConfig>
   );
 }
