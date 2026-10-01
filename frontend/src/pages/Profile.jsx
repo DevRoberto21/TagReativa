@@ -14,50 +14,63 @@ import styles from './Profile.module.css';
 
 export default function Profile() {
   const navigate = useNavigate();
+  const [profile, setProfile] = useState(null);
+  const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [age, setAge] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteStep, setDeleteStep] = useState('idle');
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteMessage, setDeleteMessage] = useState('');
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-  const [telegramLinked, setTelegramLinked] = useState(false);
-  const [twoFactorStep, setTwoFactorStep] = useState('idle');
-  const [twoFactorCode, setTwoFactorCode] = useState('');
-  const [twoFactorPassword, setTwoFactorPassword] = useState('');
-  const [twoFactorMessage, setTwoFactorMessage] = useState('');
 
   useEffect(() => {
     api.get('/users/me')
-      .then(r => {
-        setName(r.data.name);
-        setWhatsapp(r.data.whatsapp);
-        setAge(r.data.age ?? '');
-        setTwoFactorEnabled(r.data.twoFactorEnabled);
-        setTelegramLinked(r.data.telegramLinked);
-      })
+      .then(r => setProfile(r.data))
       .catch(() => setError('Erro ao carregar perfil do tutor.'));
   }, []);
+
+  function startEditing() {
+    setName(profile.name);
+    setWhatsapp(profile.whatsapp);
+    setAge(profile.age ?? '');
+    setPassword('');
+    setError('');
+    setSuccess(false);
+    setEditing(true);
+  }
+
+  function cancelEditing() {
+    setPassword('');
+    setError('');
+    setEditing(false);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    setSuccess(false);
     const parsedAge = parseInt(age);
     if (age !== '' && parsedAge < 18) {
       setError('Idade mínima permitida é de 18 anos.');
       return;
     }
+    setSaving(true);
     try {
-      const payload = { name, whatsapp };
+      const payload = { name, whatsapp, password };
       if (age !== '') payload.age = parsedAge;
-      await api.patch('/users/me', payload);
+      const { data } = await api.patch('/users/me', payload);
+      setProfile(current => ({ ...current, ...data }));
+      setPassword('');
+      setEditing(false);
       setSuccess(true);
-    } catch {
-      setError('Erro ao salvar alterações.');
+    } catch (err) {
+      setError(err.response?.status === 403 ? 'Senha incorreta.' : 'Erro ao salvar alterações.');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -75,124 +88,100 @@ export default function Profile() {
     }
   }
 
-  async function handleEnableTwoFactor() {
-    setTwoFactorMessage('');
-    try {
-      await api.post('/auth/2fa/enable');
-      setTwoFactorStep('confirming');
-    } catch {
-      setTwoFactorMessage('Erro ao solicitar código de confirmação.');
-    }
-  }
-
-  async function handleConfirmTwoFactor(e) {
-    e.preventDefault();
-    setTwoFactorMessage('');
-    try {
-      await api.post('/auth/2fa/confirm', { code: twoFactorCode });
-      setTwoFactorEnabled(true);
-      setTwoFactorStep('idle');
-      setTwoFactorCode('');
-    } catch {
-      setTwoFactorMessage('Código inválido ou expirado.');
-    }
-  }
-
-  async function handleDisableTwoFactor(e) {
-    e.preventDefault();
-    setTwoFactorMessage('');
-    try {
-      await api.post('/auth/2fa/disable', { password: twoFactorPassword });
-      setTwoFactorEnabled(false);
-      setTwoFactorStep('idle');
-      setTwoFactorPassword('');
-    } catch {
-      setTwoFactorMessage('Senha incorreta.');
-    }
-  }
-
   return (
     <Page>
       <PageHeader title="Painel do Tutor" onBack={() => navigate('/dashboard')} />
 
       <Panel>
-        <form onSubmit={handleSubmit} className="stack">
-          <Field label="Nome Completo" value={name} onChange={e => setName(e.target.value)} required />
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div key={editing ? 'editing' : 'viewing'} {...swap}>
+            {!editing && (
+              <div className="stack">
+                {profile && (
+                  <dl className={styles.data}>
+                    <div className={styles.row}>
+                      <dt className={styles.term}>Nome Completo</dt>
+                      <dd className={styles.value}>{profile.name}</dd>
+                    </div>
+                    <div className={styles.row}>
+                      <dt className={styles.term}>E-mail</dt>
+                      <dd className={styles.value}>{profile.email}</dd>
+                    </div>
+                    <div className={styles.row}>
+                      <dt className={styles.term}>Canal Telegram</dt>
+                      <dd className={styles.value}>{profile.whatsapp}</dd>
+                    </div>
+                    <div className={styles.row}>
+                      <dt className={styles.term}>Idade (anos)</dt>
+                      <dd className={styles.value}>{profile.age ?? 'Não informada'}</dd>
+                    </div>
+                  </dl>
+                )}
 
-          <Field label="Canal Telegram" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} required />
+                {error && <Notice tone="error">{error}</Notice>}
+                {success && <Notice tone="success">Dados salvos no ecossistema.</Notice>}
 
-          <Field label="Idade (anos)" type="number" value={age} onChange={e => setAge(e.target.value)} min={18} placeholder="Mínimo 18 anos" />
+                <Button block onClick={startEditing} disabled={!profile}>Editar Dados</Button>
+              </div>
+            )}
 
-          <Notice>
-            Os canais de comunicação criptografados permanecem privados. Eles só serão visíveis para terceiros que escanearem fisicamente a tag de um pet cujo status operacional esteja explicitamente marcado como "Perdido".
-          </Notice>
+            {editing && (
+              <form onSubmit={handleSubmit} className="stack">
+                <Field label="Nome Completo" value={name} onChange={e => setName(e.target.value)} required />
 
-          {error && <Notice tone="error">{error}</Notice>}
-          {success && <Notice tone="success">Dados salvos no ecossistema.</Notice>}
+                <Field label="E-mail" value={profile.email} readOnly hint="O e-mail da conta não pode ser alterado." />
 
-          <Button type="submit" block>Salvar Alterações</Button>
-        </form>
+                <Field label="Canal Telegram" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} required />
+
+                <Field label="Idade (anos)" type="number" value={age} onChange={e => setAge(e.target.value)} min={18} placeholder="Mínimo 18 anos" />
+
+                <Notice>
+                  Os canais de comunicação criptografados permanecem privados. Eles só serão visíveis para terceiros que escanearem fisicamente a tag de um pet cujo status operacional esteja explicitamente marcado como "Perdido".
+                </Notice>
+
+                <Field
+                  label="Senha atual"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  hint="Necessária para confirmar a alteração."
+                  required
+                />
+
+                {error && <Notice tone="error">{error}</Notice>}
+
+                <Button type="submit" block disabled={saving}>
+                  {saving ? 'Salvando...' : 'Salvar Alterações'}
+                </Button>
+                <Button variant="ghost" block onClick={cancelEditing}>Cancelar</Button>
+              </form>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </Panel>
 
       <Panel className={styles.section}>
         <Button variant="secondary" block onClick={() => navigate('/configurar-notificacao')}>
-          {telegramLinked ? 'Alertas no Telegram: ativos' : 'Ativar alertas no Telegram'}
+          {profile?.telegramLinked ? 'Alertas no Telegram: ativos' : 'Ativar alertas no Telegram'}
         </Button>
 
         <div className={styles.divider} />
 
         <div className={styles.sectionHeader}>
           <span className={styles.sectionTitle}>Autenticação em Dois Fatores</span>
-          <StatusBadge muted={!twoFactorEnabled} label={twoFactorEnabled ? 'Ativado' : 'Desativado'} />
+          <StatusBadge muted={!profile?.twoFactorEnabled} label={profile?.twoFactorEnabled ? 'Ativado' : 'Desativado'} />
         </div>
 
-        {twoFactorMessage && <Notice tone="error">{twoFactorMessage}</Notice>}
+        <Button variant="secondary" block onClick={() => navigate('/perfil/2fa')}>
+          Gerenciar 2FA
+        </Button>
 
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={`${twoFactorEnabled}-${twoFactorStep}`} {...swap}>
-            {!twoFactorEnabled && twoFactorStep === 'idle' && (
-              <Button variant="secondary" block onClick={handleEnableTwoFactor}>
-                Ativar 2FA
-              </Button>
-            )}
+        <div className={styles.divider} />
 
-            {!twoFactorEnabled && twoFactorStep === 'confirming' && (
-              <form onSubmit={handleConfirmTwoFactor} className="stack">
-                <Field
-                  label="Código de 6 dígitos"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={twoFactorCode}
-                  onChange={e => setTwoFactorCode(e.target.value)}
-                  maxLength={6}
-                  required
-                />
-                <Button type="submit" block>Confirmar Ativação</Button>
-              </form>
-            )}
-
-            {twoFactorEnabled && twoFactorStep === 'idle' && (
-              <Button variant="danger" block onClick={() => setTwoFactorStep('disabling')}>
-                Desativar 2FA
-              </Button>
-            )}
-
-            {twoFactorEnabled && twoFactorStep === 'disabling' && (
-              <form onSubmit={handleDisableTwoFactor} className="stack">
-                <Field
-                  label="Senha atual"
-                  type="password"
-                  autoComplete="current-password"
-                  value={twoFactorPassword}
-                  onChange={e => setTwoFactorPassword(e.target.value)}
-                  required
-                />
-                <Button type="submit" variant="danger" block>Confirmar Desativação</Button>
-              </form>
-            )}
-          </motion.div>
-        </AnimatePresence>
+        <Button variant="secondary" block onClick={() => navigate('/perfil/senha')}>
+          Alterar Senha
+        </Button>
       </Panel>
 
       <Panel tone="alert">

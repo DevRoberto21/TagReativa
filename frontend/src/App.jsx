@@ -11,6 +11,8 @@ import Dashboard from './pages/Dashboard';
 import NewPet from './pages/NewPet';
 import EditPet from './pages/EditPet';
 import Profile from './pages/Profile';
+import TwoFactor from './pages/TwoFactor';
+import ChangePassword from './pages/ChangePassword';
 import ScanPage from './pages/ScanPage';
 import TelegramSetup from './pages/TelegramSetup';
 import EmailAlertsInfo from './pages/EmailAlertsInfo';
@@ -58,6 +60,8 @@ function AnimatedRoutes() {
         <Route path="/pets/novo" element={<PrivateRoute><NewPet /></PrivateRoute>} />
         <Route path="/pets/:id/editar" element={<PrivateRoute><EditPet /></PrivateRoute>} />
         <Route path="/perfil" element={<PrivateRoute><Profile /></PrivateRoute>} />
+        <Route path="/perfil/2fa" element={<PrivateRoute><TwoFactor /></PrivateRoute>} />
+        <Route path="/perfil/senha" element={<PrivateRoute><ChangePassword /></PrivateRoute>} />
         <Route path="/configurar-notificacao" element={<PrivateRoute requireTelegram={false}><TelegramSetup /></PrivateRoute>} />
         <Route path="/alertas-email" element={<PrivateRoute><EmailAlertsInfo /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/login" replace />} />

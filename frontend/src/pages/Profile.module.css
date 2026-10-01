@@ -24,3 +24,35 @@
   height: 1px;
   background: var(--line);
 }
+
+.text {
+  color: var(--text-muted);
+}
+
+/* Read-only profile data: mono label over its value. */
+.data {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.term {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.value {
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
