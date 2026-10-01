@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes, randomInt, createHash } from 'crypto';
 import { UsersService } from '../users/users.service';
@@ -35,7 +40,9 @@ export class AuthService {
 
   async login(
     dto: LoginDto,
-  ): Promise<{ access_token: string } | { twoFactorRequired: true; loginToken: string }> {
+  ): Promise<
+    { access_token: string } | { twoFactorRequired: true; loginToken: string }
+  > {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) {
       await bcrypt.compare(dto.password, DUMMY_PASSWORD_HASH);
@@ -46,7 +53,11 @@ export class AuthService {
     if (!valid) throw new UnauthorizedException('Credenciais inválidas.');
 
     if (user.twoFactorEnabled) {
-      const loginToken = await this.issueTwoFactorCode(user.id, user.email, true);
+      const loginToken = await this.issueTwoFactorCode(
+        user.id,
+        user.email,
+        true,
+      );
       return { twoFactorRequired: true, loginToken: loginToken! };
     }
 

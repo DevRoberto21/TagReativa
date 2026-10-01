@@ -21,7 +21,7 @@ export default function Dashboard() {
   const [pets, setPets] = useState([]);
   const [scanCounts, setScanCounts] = useState({});
   const [confirmModal, setConfirmModal] = useState(null);
-  const { qrModal, openQr, downloadSvg, closeQr } = useQrModal();
+  const { qrModal, openQr, downloadSvg, downloadPng, closeQr } = useQrModal();
 
   useEffect(() => {
     api.get('/users/me').then(r => setUser(r.data)).catch(() => { });
@@ -161,6 +161,7 @@ export default function Dashboard() {
       <QrModal
         qrModal={qrModal}
         onDownload={downloadSvg}
+        onDownloadPng={downloadPng}
         onClose={closeQr}
       />
     </PageContainer>

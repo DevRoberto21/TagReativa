@@ -1,13 +1,18 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  // Number of reverse proxies in front of the app (Render adds its own).
+  // Without it, req.ip is the proxy's address and every client shares one
+  // rate-limit bucket. 0 (default) keeps local dev reading the socket address.
+  app.set('trust proxy', parseInt(process.env.TRUST_PROXY_HOPS ?? '0', 10));
+
   const { default: helmet } = await import('helmet');
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
   app.use(helmet());
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
