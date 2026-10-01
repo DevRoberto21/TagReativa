@@ -8,6 +8,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
 import { ConfirmTwoFactorDto } from './dto/confirm-two-factor.dto';
 import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 interface AuthenticatedRequest {
   user: { userId: string };
@@ -41,8 +42,19 @@ export class AuthController {
     return this.authService.resetPassword(dto);
   }
 
+  @Post('change-password')
+  @UseGuards(AuthGuard('jwt'))
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  changePassword(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(req.user.userId, dto);
+  }
+
   @Post('2fa/enable')
   @UseGuards(AuthGuard('jwt'))
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
   enableTwoFactor(@Request() req: AuthenticatedRequest) {
     return this.authService.enableTwoFactor(req.user.userId);
   }

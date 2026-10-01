@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes, randomInt, createHash } from 'crypto';
@@ -16,6 +17,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
 import { ConfirmTwoFactorDto } from './dto/confirm-two-factor.dto';
 import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const FORGOT_PASSWORD_GENERIC_MESSAGE =
@@ -355,5 +357,52 @@ export class AuthService {
     });
 
     return { message: 'Senha redefinida com sucesso.' };
+  }
+
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+  ): Promise<{ message: string; access_token: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Usuário não encontrado.');
+
+    // 403 rather than 401: the frontend logs the user out on any 401.
+    const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!valid) throw new ForbiddenException('Senha incorreta.');
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
+
+    // Bumping tokenVersion signs out every other session; the token returned
+    // below keeps the one that made the change logged in.
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, tokenVersion: { increment: 1 } },
+    });
+
+    void this.emailService
+      .send(
+        user.email,
+        'Senha alterada - TagReativa',
+        'A senha da sua conta TagReativa foi alterada. Se você não fez essa alteração, redefina sua senha imediatamente pela opção "Esqueci minha senha".',
+      )
+      .then((delivered) => {
+        if (!delivered) {
+          console.error(
+            '[AUTH] Falha ao enviar e-mail de aviso de alteração de senha para',
+            user.email,
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        console.error(
+          '[AUTH] Erro inesperado no envio do e-mail de aviso de alteração de senha:',
+          err,
+        );
+      });
+
+    return {
+      message: 'Senha alterada com sucesso.',
+      access_token: this.signAccessToken(updated),
+    };
   }
 }

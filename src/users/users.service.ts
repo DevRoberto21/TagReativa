@@ -65,6 +65,10 @@ export class UsersService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuário não encontrado.');
 
+    // 403 rather than 401: the frontend logs the user out on any 401.
+    const valid = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!valid) throw new ForbiddenException('Senha incorreta.');
+
     return this.prisma.user.update({
       where: { id: userId },
       data: {

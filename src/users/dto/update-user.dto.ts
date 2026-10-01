@@ -1,4 +1,5 @@
 import {
+  IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
@@ -24,4 +25,9 @@ export class UpdateUserDto {
   @IsInt()
   @Min(18)
   age?: number;
+
+  // Current password, required to confirm any profile change.
+  @IsString()
+  @IsNotEmpty()
+  password!: string;
 }

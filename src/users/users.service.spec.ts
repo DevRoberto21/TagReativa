@@ -54,6 +54,41 @@ describe('UsersService', () => {
     });
   });
 
+  describe('updateMe', () => {
+    beforeEach(async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        passwordHash: await bcrypt.hash('senha123', 10),
+      });
+    });
+
+    it('saves the profile fields when the password is correct', async () => {
+      await service.updateMe('user-1', {
+        name: 'Novo Nome',
+        whatsapp: '5581912345678',
+        age: 30,
+        password: 'senha123',
+      });
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-1' },
+          data: { name: 'Novo Nome', whatsapp: '5581912345678', age: 30 },
+        }),
+      );
+    });
+
+    it('rejects a wrong password with 403 and keeps the profile', async () => {
+      await expect(
+        service.updateMe('user-1', {
+          name: 'Novo Nome',
+          password: 'errada123',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('deleteMe', () => {
     beforeEach(async () => {
       prisma.user.findUnique.mockResolvedValue({

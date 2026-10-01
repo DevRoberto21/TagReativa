@@ -4,6 +4,7 @@ import { UsersService } from '../users/users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { JwtService } from '@nestjs/jwt';
+import { ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 
@@ -551,6 +552,79 @@ describe('AuthService', () => {
       await expect(
         service.disableTwoFactor('user-2', { password: 'wrong' }),
       ).rejects.toThrow('Senha incorreta.');
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(emailService.send).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('changePassword', () => {
+    beforeEach(async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        ...existingUser,
+        passwordHash: await bcrypt.hash('current-pass1', 10),
+      });
+      prisma.user.update.mockResolvedValue({
+        ...existingUser,
+        tokenVersion: 4,
+      });
+      emailService.send.mockResolvedValue(true);
+    });
+
+    it('stores the new password hash and bumps tokenVersion for the correct current password', async () => {
+      await service.changePassword('user-1', {
+        currentPassword: 'current-pass1',
+        newPassword: 'brand-new2',
+      });
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: {
+          passwordHash: expect.any(String) as string,
+          tokenVersion: { increment: 1 },
+        },
+      });
+      const [{ data }] = prisma.user.update.mock.calls[0] as [
+        { data: { passwordHash: string } },
+      ];
+      expect(await bcrypt.compare('brand-new2', data.passwordHash)).toBe(true);
+    });
+
+    it('returns an access token signed with the bumped tokenVersion so the current session survives', async () => {
+      const result = await service.changePassword('user-1', {
+        currentPassword: 'current-pass1',
+        newPassword: 'brand-new2',
+      });
+
+      expect(result).toEqual({
+        message: 'Senha alterada com sucesso.',
+        access_token: 'signed-jwt',
+      });
+      expect(jwtService.sign).toHaveBeenCalledWith({
+        sub: 'user-1',
+        email: 'owner@example.com',
+        ver: 4,
+      });
+    });
+
+    it('notifies the owner by email', async () => {
+      await service.changePassword('user-1', {
+        currentPassword: 'current-pass1',
+        newPassword: 'brand-new2',
+      });
+
+      expect(emailService.send).toHaveBeenCalledTimes(1);
+      const [to, subject] = emailService.send.mock.calls[0] as [string, string];
+      expect(to).toBe('owner@example.com');
+      expect(subject).toMatch(/senha alterada/i);
+    });
+
+    it('rejects a wrong current password with 403 and keeps the password', async () => {
+      await expect(
+        service.changePassword('user-1', {
+          currentPassword: 'wrong-pass1',
+          newPassword: 'brand-new2',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
       expect(prisma.user.update).not.toHaveBeenCalled();
       expect(emailService.send).not.toHaveBeenCalled();
     });
