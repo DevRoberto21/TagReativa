@@ -38,9 +38,27 @@ export function useQrModal() {
         }
     }
 
+    async function downloadPng() {
+        if (!qrModal?.qrCodeUrl) return;
+        try {
+            // Larger than the on-screen preview so the tag prints sharp.
+            const png = await QRCode.toDataURL(qrModal.qrCodeUrl, {
+                margin: 2,
+                width: 1024,
+                color: { dark: '#1b4332', light: '#ffffff' },
+            });
+            const a = document.createElement('a');
+            a.href = png;
+            a.download = `qrcode-${qrModal.name}.png`;
+            a.click();
+        } catch {
+            alert('Erro ao gerar PNG.');
+        }
+    }
+
     function closeQr() {
         setQrModal(null);
     }
 
-    return { qrModal, openQr, downloadSvg, closeQr };
+    return { qrModal, openQr, downloadSvg, downloadPng, closeQr };
 }

@@ -1,4 +1,4 @@
-export default function QrModal({ qrModal, onDownload, onClose }) {
+export default function QrModal({ qrModal, onDownload, onDownloadPng, onClose }) {
     if (!qrModal) return null;
 
     return (
@@ -8,6 +8,7 @@ export default function QrModal({ qrModal, onDownload, onClose }) {
                 <div style={styles.qrWrapper}>
                     <img src={qrModal.qr} alt="QR Code" style={styles.qrImg} />
                 </div>
+                <button onClick={onDownloadPng} style={styles.svgBtn}>Baixar Imagem (.PNG)</button>
                 <button onClick={onDownload} style={styles.svgBtn}>Exportar Vetor (.SVG)</button>
                 <button onClick={onClose} style={styles.closeBtn}>Fechar Janela</button>
             </div>
