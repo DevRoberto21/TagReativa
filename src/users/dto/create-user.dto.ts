@@ -5,11 +5,13 @@ import {
   IsInt,
   IsOptional,
   Min,
+  MaxLength,
 } from 'class-validator';
 import { IsPasswordPolicy } from '../../auth/password-policy';
 
 export class CreateUserDto {
   @IsString()
+  @MaxLength(80)
   name!: string;
 
   @IsEmail()
