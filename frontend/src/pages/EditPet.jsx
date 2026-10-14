@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
 import { usePhotoUpload } from '../hooks/usePhotoUpload';
+import { isUuid } from '../utils/isUuid';
 import PhotoPicker from '../components/PhotoPicker';
 import ConfirmModal from '../components/ConfirmModal';
 import Page from '../components/ui/Page';
@@ -27,6 +28,10 @@ export default function EditPet() {
   const { photoUrl, setPhotoUrl, uploadError } = upload;
 
   useEffect(() => {
+    if (!isUuid(id)) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
     api.get(`/pets/${id}`)
       .then(r => {
         setName(r.data.name);
@@ -37,7 +42,7 @@ export default function EditPet() {
         setNotes(r.data.notes ?? '');
       })
       .catch(() => setError('Erro ao carregar dados do dispositivo.'));
-  }, [id, setPhotoUrl]);
+  }, [id, navigate, setPhotoUrl]);
 
   async function handleSubmit(e) {
     e.preventDefault();

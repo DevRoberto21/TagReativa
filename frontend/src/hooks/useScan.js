@@ -1,14 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { getDeviceId } from '../utils/deviceId';
+import { isUuid } from '../utils/isUuid';
 
 export function useScan(petId) {
+    const valid = isUuid(petId);
     const [result, setResult] = useState(null);
-    const [error, setError] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(
+        valid ? null : 'Pet não encontrado ou erro no servidor.',
+    );
+    const [loading, setLoading] = useState(valid);
     const sentFor = useRef(null);
 
     useEffect(() => {
+        if (!valid) return;
         // StrictMode runs effects twice in development; without this guard every
         // page open would register two scans and send two alerts.
         if (sentFor.current === petId) return;
@@ -45,7 +50,7 @@ export function useScan(petId) {
             () => doScan(),
             { timeout: 5000 },
         );
-    }, [petId]);
+    }, [petId, valid]);
 
     return { result, error, loading };
 }
