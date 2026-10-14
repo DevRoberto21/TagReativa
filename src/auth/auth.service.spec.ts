@@ -29,6 +29,7 @@ describe('AuthService', () => {
       create: jest.Mock;
       findUnique: jest.Mock;
       update: jest.Mock;
+      count: jest.Mock;
     };
     twoFactorCode: {
       deleteMany: jest.Mock;
@@ -67,6 +68,7 @@ describe('AuthService', () => {
         create: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
       },
       twoFactorCode: {
         deleteMany: jest.fn(),
@@ -105,7 +107,13 @@ describe('AuthService', () => {
       });
 
       expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({
-        where: { userId: 'user-1' },
+        where: {
+          userId: 'user-1',
+          OR: [
+            { usedAt: { not: null } },
+            { expiresAt: { lt: expect.any(Date) as Date } },
+          ],
+        },
       });
       expect(prisma.passwordResetToken.create).toHaveBeenCalledTimes(1);
       const createArgs = prisma.passwordResetToken.create.mock.calls[0][0];
@@ -136,6 +144,26 @@ describe('AuthService', () => {
         email: 'owner@example.com',
       });
 
+      expect(result).toEqual({
+        message:
+          'Se esse e-mail existir em nossa base, enviamos um link de recuperação.',
+      });
+    });
+
+    it('stops issuing links once the account has 3 live tokens', async () => {
+      usersService.findByEmail.mockResolvedValue(existingUser);
+      prisma.passwordResetToken.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.passwordResetToken.count.mockResolvedValue(3);
+
+      const result = await service.forgotPassword({
+        email: 'owner@example.com',
+      });
+
+      expect(prisma.passwordResetToken.count).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+      });
+      expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+      expect(emailService.send).not.toHaveBeenCalled();
       expect(result).toEqual({
         message:
           'Se esse e-mail existir em nossa base, enviamos um link de recuperação.',
