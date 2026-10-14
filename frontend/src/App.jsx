@@ -56,6 +56,7 @@ function AnimatedRoutes() {
         <Route path="/esqueci-senha" element={<ForgotPassword />} />
         <Route path="/redefinir-senha" element={<ResetPassword />} />
         <Route path="/scan/:petId" element={<ScanPage />} />
+        <Route path="/s/:petId" element={<ScanPage />} />
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/pets/novo" element={<PrivateRoute><NewPet /></PrivateRoute>} />
         <Route path="/pets/:id/editar" element={<PrivateRoute><EditPet /></PrivateRoute>} />

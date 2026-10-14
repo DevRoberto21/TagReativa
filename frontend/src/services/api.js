@@ -15,7 +15,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const isPublicRoute = window.location.pathname.startsWith('/scan');
+    const isPublicRoute = /^\/(scan|s)\//i.test(window.location.pathname);
     const isTwoFactorDisable = error.config?.url?.includes('/auth/2fa/disable');
     if (error.response?.status === 401 && !isPublicRoute && !isTwoFactorDisable) {
       localStorage.removeItem('access_token');

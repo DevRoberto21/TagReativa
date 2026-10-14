@@ -6,34 +6,50 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePetDto } from './dto/create-pet.dto';
 import { UpdatePetDto } from './dto/update-pet.dto';
-import { randomUUID } from 'crypto';
-import { PetStatus, Pet } from '@prisma/client';
+import { PetStatus, Pet, Prisma } from '@prisma/client';
 import * as QRCode from 'qrcode';
+import { buildQrCodeUrl, generateShortCode } from './short-code';
+
+const MAX_SHORT_CODE_ATTEMPTS = 3;
 
 @Injectable()
 export class PetsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(ownerId: string, dto: CreatePetDto) {
-    const petId = randomUUID();
-    const qrCodeUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/scan/${petId}`;
-    const qrCodeBase64 = await QRCode.toDataURL(qrCodeUrl);
+  private async createWithShortCode(ownerId: string, dto: CreatePetDto) {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.prisma.pet.create({
+          data: {
+            ownerId,
+            name: dto.name,
+            species: dto.species,
+            shortCode: generateShortCode(),
+            age: dto.age,
+            breed: dto.breed,
+            photoUrl: dto.photoUrl,
+            notes: dto.notes,
+          },
+        });
+      } catch (err) {
+        const collided =
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === 'P2002';
+        if (!collided || attempt >= MAX_SHORT_CODE_ATTEMPTS) throw err;
+      }
+    }
+  }
 
-    const pet = await this.prisma.pet.create({
-      data: {
-        id: petId,
-        ownerId,
-        name: dto.name,
-        species: dto.species,
-        qrCodeUrl,
-        age: dto.age,
-        breed: dto.breed,
-        photoUrl: dto.photoUrl,
-        notes: dto.notes,
-      },
+  async create(ownerId: string, dto: CreatePetDto) {
+    const pet = await this.createWithShortCode(ownerId, dto);
+    const qrCodeUrl = buildQrCodeUrl(pet.shortCode);
+    // Level Q survives scratches on a printed tag; the short URL keeps the
+    // code small even with the extra redundancy.
+    const qrCodeBase64 = await QRCode.toDataURL(qrCodeUrl, {
+      errorCorrectionLevel: 'Q',
     });
 
-    return { ...pet, qrCodeBase64 };
+    return { ...pet, qrCodeUrl, qrCodeBase64 };
   }
 
   async findAllByOwner(ownerId: string) {

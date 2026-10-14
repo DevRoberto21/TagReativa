@@ -5,10 +5,12 @@ export function useQrModal() {
     const [qrModal, setQrModal] = useState(null);
 
     async function openQr(pet) {
-        // The scan page lives on the frontend, so fall back to this app's own origin.
-        const targetUrl = pet.qrCodeUrl || `${window.location.origin}/scan/${pet.id}`;
+        // The scan page lives on this app's own origin. Upper-cased as a whole so
+        // the QR uses alphanumeric mode, which gives a smaller code to print.
+        const targetUrl = `${window.location.origin}/s/${pet.shortCode}`.toUpperCase();
         try {
             const generatedBase64 = await QRCode.toDataURL(targetUrl, {
+                errorCorrectionLevel: 'Q',
                 margin: 2,
                 width: 300,
                 color: { dark: '#1b4332', light: '#ffffff' },
@@ -24,6 +26,7 @@ export function useQrModal() {
         try {
             const svg = await QRCode.toString(qrModal.qrCodeUrl, {
                 type: 'svg',
+                errorCorrectionLevel: 'Q',
                 color: { dark: '#1b4332', light: '#ffffff' },
             });
             const blob = new Blob([svg], { type: 'image/svg+xml' });
@@ -43,6 +46,7 @@ export function useQrModal() {
         try {
             // Larger than the on-screen preview so the tag prints sharp.
             const png = await QRCode.toDataURL(qrModal.qrCodeUrl, {
+                errorCorrectionLevel: 'Q',
                 margin: 2,
                 width: 1024,
                 color: { dark: '#1b4332', light: '#ffffff' },

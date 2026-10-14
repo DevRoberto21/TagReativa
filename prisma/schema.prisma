@@ -50,7 +50,7 @@ model Pet {
   breed                   String?
   photoUrl                String?
   age                     Int?
-  qrCodeUrl               String    @unique
+  shortCode               String    @unique
   physicalFallbackConsent Boolean   @default(false)
   status                  PetStatus @default(SAFE)
   notes                   String?

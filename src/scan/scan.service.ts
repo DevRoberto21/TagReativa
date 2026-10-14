@@ -3,8 +3,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TelegramService } from '../telegram/telegram.service';
 import { EmailService } from '../email/email.service';
 import { LocationSource, NotificationChannel } from '@prisma/client';
+import { isUUID } from 'class-validator';
 
 export interface ScanDto {
+  // Short code from the printed tag, or the pet UUID on tags printed before
+  // short codes existed.
   petId: string;
   latitude?: number;
   longitude?: number;
@@ -147,7 +150,9 @@ export class ScanService {
 
   async processScan(dto: ScanDto) {
     const pet = await this.prisma.pet.findUnique({
-      where: { id: dto.petId },
+      where: isUUID(dto.petId)
+        ? { id: dto.petId }
+        : { shortCode: dto.petId.toUpperCase() },
       include: { owner: true },
     });
 

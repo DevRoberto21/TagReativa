@@ -91,6 +91,27 @@ describe('ScanService', () => {
     expect(email.send).not.toHaveBeenCalled();
   });
 
+  it('looks the pet up by short code, ignoring case', async () => {
+    prisma.pet.findUnique.mockResolvedValue(basePet);
+
+    await service.processScan({ ...scanDto, petId: 'k7m2x9qp' });
+
+    expect(prisma.pet.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { shortCode: 'K7M2X9QP' } }),
+    );
+  });
+
+  it('looks the pet up by id when the tag carries a UUID', async () => {
+    const petId = '3f2b8c1e-9a4d-4e7b-b1c2-5d6e7f8a9b0c';
+    prisma.pet.findUnique.mockResolvedValue(basePet);
+
+    await service.processScan({ ...scanDto, petId });
+
+    expect(prisma.pet.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: petId } }),
+    );
+  });
+
   it('dispatches both Telegram and Email when the pet is LOST', async () => {
     prisma.pet.findUnique.mockResolvedValue(basePet);
     telegram.sendMessage.mockResolvedValue(true);
