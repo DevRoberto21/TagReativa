@@ -5,6 +5,7 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -25,6 +26,7 @@ export class ScanBodyDto {
   consentGranted!: boolean;
 
   @IsString()
+  @MaxLength(16)
   consentVersion!: string;
 
   @IsOptional()

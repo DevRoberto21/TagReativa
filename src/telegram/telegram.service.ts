@@ -7,6 +7,8 @@ interface TelegramApiResponse<T> {
   description?: string;
 }
 
+const SEND_TIMEOUT_MS = 10_000;
+
 @Injectable()
 export class TelegramService {
   private readonly baseUrl: string;
@@ -34,12 +36,18 @@ export class TelegramService {
   }
 
   // Raw Bot API call, used for webhook setup and long polling. Throws on
-  // network errors and on responses with ok=false.
-  async call<T>(method: string, payload: object = {}): Promise<T> {
+  // network errors and on responses with ok=false. Long polling passes no
+  // timeout: getUpdates is held open by Telegram on purpose.
+  async call<T>(
+    method: string,
+    payload: object = {},
+    timeoutMs?: number,
+  ): Promise<T> {
     const res = await fetch(`${this.baseUrl}/${method}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
     });
     const data = (await res.json()) as TelegramApiResponse<T>;
     if (!data.ok) {
@@ -54,7 +62,7 @@ export class TelegramService {
     payload: object,
   ): Promise<boolean> {
     try {
-      await this.call(method, payload);
+      await this.call(method, payload, SEND_TIMEOUT_MS);
       return true;
     } catch (err) {
       console.error(`[TELEGRAM] ${method} falhou:`, err);
