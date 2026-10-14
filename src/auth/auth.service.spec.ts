@@ -39,6 +39,7 @@ describe('AuthService', () => {
       update: jest.Mock;
     };
     user: { update: jest.Mock; findUnique: jest.Mock };
+    telegramLinkToken: { deleteMany: jest.Mock };
   };
   let emailService: { send: jest.Mock };
   let jwtService: { sign: jest.Mock };
@@ -78,6 +79,9 @@ describe('AuthService', () => {
         update: jest.fn(),
       },
       user: { update: jest.fn(), findUnique: jest.fn() },
+      telegramLinkToken: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
     };
     emailService = { send: jest.fn() };
     jwtService = { sign: jest.fn().mockReturnValue('signed-jwt') };
@@ -215,7 +219,12 @@ describe('AuthService', () => {
           tokenVersion: { increment: 1 },
           twoFactorFailedAttempts: 0,
           twoFactorLockedUntil: null,
+          telegramChatId: null,
+          telegramLinkedAt: null,
         },
+      });
+      expect(prisma.telegramLinkToken.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
       });
       expect(prisma.passwordResetToken.update).toHaveBeenCalledWith({
         where: { id: 'reset-1' },
@@ -721,7 +730,12 @@ describe('AuthService', () => {
         data: {
           passwordHash: expect.any(String) as string,
           tokenVersion: { increment: 1 },
+          telegramChatId: null,
+          telegramLinkedAt: null,
         },
+      });
+      expect(prisma.telegramLinkToken.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
       });
       const [{ data }] = prisma.user.update.mock.calls[0] as [
         { data: { passwordHash: string } },

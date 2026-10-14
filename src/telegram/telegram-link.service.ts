@@ -46,6 +46,7 @@ export class TelegramLinkService {
 
   async unlink(userId: string): Promise<void> {
     await this.prisma.user.update({ where: { id: userId }, data: UNLINKED });
+    await this.prisma.telegramLinkToken.deleteMany({ where: { userId } });
   }
 
   async handleUpdate(update: TelegramUpdate): Promise<void> {
@@ -91,14 +92,23 @@ export class TelegramLinkService {
       return;
     }
 
+    // A chat that already belongs to another account is never moved by a
+    // link alone: whoever sent the link may not be who owns the chat. The
+    // chat owner releases it first with /stop. The token stays unused.
+    const holder = await this.prisma.user.findFirst({
+      where: { telegramChatId: chatId, NOT: { id: record.userId } },
+      select: { id: true },
+    });
+    if (holder) {
+      await this.telegram.sendMessage(
+        chatId,
+        'Este Telegram já está vinculado a outra conta da TagReativa. Para trocar de conta, envie /stop aqui e depois abra o link novamente.',
+      );
+      return;
+    }
+
     const now = new Date();
-    // A Telegram account can only be linked to one TagReativa user, so a
-    // chat moving to a new account is released from the previous one.
-    const [, user] = await this.prisma.$transaction([
-      this.prisma.user.updateMany({
-        where: { telegramChatId: chatId, NOT: { id: record.userId } },
-        data: UNLINKED,
-      }),
+    const [user] = await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: record.userId },
         data: { telegramChatId: chatId, telegramLinkedAt: now },
