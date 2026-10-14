@@ -22,6 +22,7 @@ describe('AuthController rate limiting', () => {
             login: jest.fn(),
             enableTwoFactor: jest.fn(),
             changePassword: jest.fn(),
+            disableTwoFactor: jest.fn(),
           },
         },
         { provide: APP_GUARD, useClass: ThrottlerGuard },
@@ -68,6 +69,19 @@ describe('AuthController rate limiting', () => {
     }
     await request(app.getHttpServer())
       .post('/auth/change-password')
+      .expect(429);
+  });
+
+  it('allows 5 two-factor disable attempts per minute and blocks the 6th', async () => {
+    for (let i = 0; i < 5; i++) {
+      await request(app.getHttpServer())
+        .post('/auth/2fa/disable')
+        .send({ password: 'x' })
+        .expect(201);
+    }
+    await request(app.getHttpServer())
+      .post('/auth/2fa/disable')
+      .send({ password: 'x' })
       .expect(429);
   });
 });

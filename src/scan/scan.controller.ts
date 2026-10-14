@@ -1,4 +1,11 @@
-import { Controller, Post, Param, Body, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Param,
+  Body,
+  Req,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { ScanService } from './scan.service';
@@ -11,7 +18,7 @@ export class ScanController {
   @Post(':petId')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   scan(
-    @Param('petId') petId: string,
+    @Param('petId', ParseUUIDPipe) petId: string,
     @Body() body: ScanBodyDto,
     @Req() req: Request,
   ) {
