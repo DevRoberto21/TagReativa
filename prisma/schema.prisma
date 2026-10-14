@@ -25,20 +25,22 @@ enum NotificationChannel {
 }
 
 model User {
-  id                  String               @id @default(uuid())
-  name                String
-  email               String               @unique
-  passwordHash        String
-  whatsapp            String               @unique
-  telegramChatId      String?              @unique
-  telegramLinkedAt    DateTime?
-  age                 Int?
-  twoFactorEnabled    Boolean              @default(false)
-  tokenVersion        Int                  @default(0)
-  pets                Pet[]
-  passwordResetTokens PasswordResetToken[]
-  twoFactorCodes      TwoFactorCode[]
-  telegramLinkTokens  TelegramLinkToken[]
+  id                      String               @id @default(uuid())
+  name                    String
+  email                   String               @unique
+  passwordHash            String
+  whatsapp                String               @unique
+  telegramChatId          String?              @unique
+  telegramLinkedAt        DateTime?
+  age                     Int?
+  twoFactorEnabled        Boolean              @default(false)
+  tokenVersion            Int                  @default(0)
+  twoFactorFailedAttempts Int                  @default(0)
+  twoFactorLockedUntil    DateTime?
+  pets                    Pet[]
+  passwordResetTokens     PasswordResetToken[]
+  twoFactorCodes          TwoFactorCode[]
+  telegramLinkTokens      TelegramLinkToken[]
 }
 
 model Pet {
