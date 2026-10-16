@@ -10,6 +10,7 @@ import Panel from '../components/ui/Panel';
 import Field from '../components/ui/Field';
 import Button from '../components/ui/Button';
 import Notice from '../components/ui/Notice';
+import { isUuid } from '../utils/routeParams';
 
 export default function EditPet() {
   const navigate = useNavigate();
@@ -26,7 +27,11 @@ export default function EditPet() {
   const upload = usePhotoUpload();
   const { photoUrl, setPhotoUrl, uploadError } = upload;
 
+  const validId = isUuid(id);
+  const loadError = validId ? '' : 'Erro ao carregar dados do dispositivo.';
+
   useEffect(() => {
+    if (!validId) return;
     api.get(`/pets/${id}`)
       .then(r => {
         setName(r.data.name);
@@ -37,10 +42,11 @@ export default function EditPet() {
         setNotes(r.data.notes ?? '');
       })
       .catch(() => setError('Erro ao carregar dados do dispositivo.'));
-  }, [id, setPhotoUrl]);
+  }, [id, validId, setPhotoUrl]);
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!validId) return;
     setError('');
     try {
       const payload = { name, species };
@@ -57,6 +63,7 @@ export default function EditPet() {
 
   async function handleDelete() {
     setConfirmingDelete(false);
+    if (!validId) return;
     setDeleting(true);
     try {
       await api.delete(`/pets/${id}`);
@@ -88,7 +95,7 @@ export default function EditPet() {
 
           <Field as="textarea" label="Observações de Resgate / Cuidados" value={notes} onChange={e => setNotes(e.target.value)} />
 
-          {(error || uploadError) && <Notice tone="error">{error || uploadError}</Notice>}
+          {(loadError || error || uploadError) && <Notice tone="error">{loadError || error || uploadError}</Notice>}
           <Button type="submit" block>Salvar Atualizações</Button>
         </form>
       </Panel>
