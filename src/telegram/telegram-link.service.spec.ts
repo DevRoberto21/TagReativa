@@ -62,6 +62,8 @@ describe('TelegramLinkService', () => {
   });
 
   describe('createLink', () => {
+    const anyDate: unknown = expect.any(Date);
+
     it('replaces unused tokens and returns a deep link with a hashed token stored', async () => {
       const { url } = await service.createLink('user-1');
 
@@ -70,7 +72,13 @@ describe('TelegramLinkService', () => {
       );
       expect(match).not.toBeNull();
       expect(prisma.telegramLinkToken.deleteMany).toHaveBeenCalledWith({
-        where: { userId: 'user-1', usedAt: null },
+        where: {
+          OR: [
+            { userId: 'user-1', usedAt: null },
+            { usedAt: { not: null } },
+            { expiresAt: { lt: anyDate } },
+          ],
+        },
       });
       type CreateArgs = [
         { data: { userId: string; tokenHash: string; expiresAt: Date } },

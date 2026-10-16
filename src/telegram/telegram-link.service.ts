@@ -39,8 +39,15 @@ export class TelegramLinkService {
     const token = randomBytes(32).toString('base64url');
     const tokenHash = createHash('sha256').update(token).digest('hex');
 
+    // Also purge every used or expired token, so the table does not grow.
     await this.prisma.telegramLinkToken.deleteMany({
-      where: { userId, usedAt: null },
+      where: {
+        OR: [
+          { userId, usedAt: null },
+          { usedAt: { not: null } },
+          { expiresAt: { lt: new Date() } },
+        ],
+      },
     });
     await this.prisma.telegramLinkToken.create({
       data: {

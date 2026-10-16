@@ -10,7 +10,10 @@ describe('TelegramController', () => {
     unlink: jest.Mock;
     handleUpdate: jest.Mock;
   };
-  const update = { update_id: 1 };
+  const update = {
+    update_id: 1,
+    message: { chat: { id: 42, type: 'private' }, text: '/start abc' },
+  };
 
   beforeEach(async () => {
     process.env.TELEGRAM_WEBHOOK_SECRET = 'secret-1';
@@ -32,6 +35,25 @@ describe('TelegramController', () => {
     await controller.webhook('secret-1', update);
 
     expect(linkService.handleUpdate).toHaveBeenCalledWith(update);
+  });
+
+  it.each([
+    ['a non-object body', 'oops'],
+    ['an update without message', { update_id: 1 }],
+    [
+      'a string chat id',
+      { update_id: 1, message: { chat: { id: '42' }, text: '/start' } },
+    ],
+    ['a missing chat', { update_id: 1, message: { text: '/start' } }],
+    [
+      'a non-string text',
+      { update_id: 1, message: { chat: { id: 42 }, text: 7 } },
+    ],
+  ])('acknowledges %s without processing it', async (_label, body) => {
+    await expect(
+      controller.webhook('secret-1', body as never),
+    ).resolves.toEqual({ ok: true });
+    expect(linkService.handleUpdate).not.toHaveBeenCalled();
   });
 
   it.each([['wrong'], [undefined]])(
