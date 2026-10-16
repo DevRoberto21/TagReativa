@@ -10,8 +10,10 @@ describe('ScanService', () => {
   let service: ScanService;
   let prisma: {
     pet: { findUnique: jest.Mock };
-    scanLog: { create: jest.Mock; count: jest.Mock };
+    scanLog: { create: jest.Mock; count: jest.Mock; update: jest.Mock };
     notification: { create: jest.Mock };
+    $executeRaw: jest.Mock;
+    $transaction: jest.Mock;
   };
   let telegram: { sendMessage: jest.Mock; sendLocation: jest.Mock };
   let email: { send: jest.Mock };
@@ -56,9 +58,14 @@ describe('ScanService', () => {
   beforeEach(async () => {
     prisma = {
       pet: { findUnique: jest.fn() },
-      scanLog: { create: jest.fn(), count: jest.fn() },
+      scanLog: { create: jest.fn(), count: jest.fn(), update: jest.fn() },
       notification: { create: jest.fn() },
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      $transaction: jest.fn(),
     };
+    prisma.$transaction.mockImplementation(
+      (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma),
+    );
     telegram = {
       sendMessage: jest.fn(),
       sendLocation: jest.fn().mockResolvedValue(true),
@@ -78,6 +85,7 @@ describe('ScanService', () => {
 
     prisma.scanLog.create.mockResolvedValue(createdScanLog);
     prisma.scanLog.count.mockResolvedValue(0);
+    prisma.scanLog.update.mockResolvedValue({});
     prisma.notification.create.mockResolvedValue({});
   });
 
@@ -368,6 +376,32 @@ describe('ScanService', () => {
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
+    it('stores the resolved address on the scan log after the transaction', async () => {
+      await service.processScan(publicScan);
+
+      expect(prisma.scanLog.update).toHaveBeenCalledWith({
+        where: { id: createdScanLog.id },
+        data: { latitude: 1, longitude: 2 },
+      });
+      expect(fetchMock.mock.invocationCallOrder[0]).toBeGreaterThan(
+        prisma.$transaction.mock.invocationCallOrder[0],
+      );
+      expect(fetchMock.mock.invocationCallOrder[0]).toBeGreaterThan(
+        prisma.scanLog.create.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('still alerts when storing the resolved address fails', async () => {
+      prisma.scanLog.update.mockRejectedValue(new Error('db down'));
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+      email.send.mockResolvedValue(true);
+
+      const result = await service.processScan(publicScan);
+
+      expect(email.send).toHaveBeenCalledTimes(1);
+      expect(result.ownerNotified).toBe(true);
+    });
+
     it('still looks up an IPv4-mapped public address', async () => {
       await service.processScan({
         ...publicScan,
@@ -535,6 +569,44 @@ describe('ScanService', () => {
       expect(result.owner.whatsappHref).toBe('https://wa.me/5511999999999');
     });
 
+    it('locks the pet before counting and inserting, in one transaction', async () => {
+      mockAlertCounts(0, 0);
+
+      await service.processScan({ ...scanDto, deviceId });
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      const [strings, ...values] = prisma.$executeRaw.mock.calls[0] as [
+        TemplateStringsArray,
+        ...unknown[],
+      ];
+      expect(strings.join('?')).toBe(
+        'SELECT pg_advisory_xact_lock(hashtext(?))',
+      );
+      expect(values).toEqual(['pet-1']);
+      const lock = prisma.$executeRaw.mock.invocationCallOrder[0];
+      const counts = prisma.scanLog.count.mock.invocationCallOrder;
+      const create = prisma.scanLog.create.mock.invocationCallOrder[0];
+      expect(Math.min(...counts)).toBeGreaterThan(lock);
+      expect(create).toBeGreaterThan(Math.max(...counts));
+    });
+
+    it('sends alerts only after the transaction commits', async () => {
+      let committed = false;
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof prisma) => Promise<unknown>) => {
+          const result = await fn(prisma);
+          committed = true;
+          return result;
+        },
+      );
+      email.send.mockImplementation(() => Promise.resolve(committed));
+
+      const result = await service.processScan({ ...scanDto, deviceId });
+
+      expect(await email.send.mock.results[0].value).toBe(true);
+      expect(result.ownerNotified).toBe(true);
+    });
+
     it('does not query the limit or alert when the pet is not LOST', async () => {
       prisma.pet.findUnique.mockResolvedValue({
         ...basePet,
@@ -544,6 +616,7 @@ describe('ScanService', () => {
       const result = await service.processScan({ ...scanDto, deviceId });
 
       expect(prisma.scanLog.count).not.toHaveBeenCalled();
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
       expect(createdScanData()).toMatchObject({
         deviceId,
         alertSent: false,

@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TelegramService } from '../telegram/telegram.service';
 import { EmailService } from '../email/email.service';
-import { LocationSource, NotificationChannel } from '@prisma/client';
+import { LocationSource, NotificationChannel, Prisma } from '@prisma/client';
 import { isUUID } from 'class-validator';
 
 export interface ScanDto {
@@ -138,6 +138,7 @@ export class ScanService {
   }
 
   private async canSendAlert(
+    tx: Prisma.TransactionClient,
     petId: string,
     ipAddress: string,
     deviceId?: string,
@@ -145,17 +146,17 @@ export class ScanService {
     const since = new Date(Date.now() - ALERT_WINDOW_MS);
     const where = { petId, alertSent: true, timestamp: { gte: since } };
 
-    const petAlerts = await this.prisma.scanLog.count({ where });
+    const petAlerts = await tx.scanLog.count({ where });
     if (petAlerts >= MAX_ALERTS_PER_PET) return false;
 
-    const sourceAlerts = await this.prisma.scanLog.count({
+    const sourceAlerts = await tx.scanLog.count({
       where: { ...where, ipAddress },
     });
     if (sourceAlerts >= MAX_ALERTS_PER_SOURCE) return false;
 
     if (!deviceId) return true;
 
-    const deviceAlerts = await this.prisma.scanLog.count({
+    const deviceAlerts = await tx.scanLog.count({
       where: { ...where, deviceId },
     });
     return deviceAlerts < MAX_ALERTS_PER_DEVICE;
@@ -177,31 +178,57 @@ export class ScanService {
     let latitude = dto.latitude ?? null;
     let longitude = dto.longitude ?? null;
 
-    const alertSent =
-      pet.status === 'LOST' &&
-      (await this.canSendAlert(pet.id, dto.ipAddress, dto.deviceId));
+    const { scanLog, alertSent } = await this.prisma.$transaction(
+      async (tx) => {
+        let alertSent = false;
+        if (pet.status === 'LOST') {
+          // Concurrent scans of the same pet would otherwise all read the same
+          // count and pass the cap together.
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${pet.id}))`;
+          alertSent = await this.canSendAlert(
+            tx,
+            pet.id,
+            dto.ipAddress,
+            dto.deviceId,
+          );
+        }
+
+        const scanLog = await tx.scanLog.create({
+          data: {
+            petId: pet.id,
+            latitude,
+            longitude,
+            ipAddress: dto.ipAddress,
+            locationSource,
+            consentGranted: dto.consentGranted,
+            consentVersion: dto.consentVersion,
+            deviceId: dto.deviceId,
+            alertSent,
+          },
+        });
+        return { scanLog, alertSent };
+      },
+    );
 
     // The finder's address goes to a third party only when the owner will
-    // actually get an alert, and only with the finder's consent.
+    // actually get an alert, and only with the finder's consent. The lookup
+    // runs after commit so the pet lock is never held across the network.
     if (!hasGps && alertSent && dto.consentGranted) {
       const resolved = await this.resolveLocationByIp(dto.ipAddress);
       latitude = resolved.latitude;
       longitude = resolved.longitude;
+      if (latitude != null && longitude != null) {
+        // The alert is already committed; a failed write must not block it.
+        await this.prisma.scanLog
+          .update({ where: { id: scanLog.id }, data: { latitude, longitude } })
+          .catch((err: Error) =>
+            console.error(
+              '[ScanLog] Falha ao gravar localização:',
+              err.message,
+            ),
+          );
+      }
     }
-
-    const scanLog = await this.prisma.scanLog.create({
-      data: {
-        petId: pet.id,
-        latitude,
-        longitude,
-        ipAddress: dto.ipAddress,
-        locationSource,
-        consentGranted: dto.consentGranted,
-        consentVersion: dto.consentVersion,
-        deviceId: dto.deviceId,
-        alertSent,
-      },
-    });
 
     if (alertSent) {
       const location =
