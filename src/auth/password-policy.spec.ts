@@ -2,6 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { PASSWORD_POLICY_MESSAGE } from './password-policy';
 
 async function passwordErrors(dto: object, field: string) {
   const errors = await validate(dto);
@@ -50,10 +51,35 @@ describe('password policy', () => {
     ).toHaveLength(0);
   });
 
+  it('accepts a password of exactly 72 bytes', async () => {
+    const password = 'a1' + 'é'.repeat(35); // 2 + 70 bytes
+    expect(
+      await passwordErrors(registerDto(password), 'password'),
+    ).toHaveLength(0);
+    expect(
+      await passwordErrors(resetDto(password), 'newPassword'),
+    ).toHaveLength(0);
+  });
+
+  // bcrypt ignores everything past 72 bytes, so longer passwords are refused.
+  it('rejects a password longer than 72 bytes', async () => {
+    for (const password of [
+      'a1' + 'x'.repeat(71),
+      'a1' + 'é'.repeat(35) + 'x',
+    ]) {
+      expect(
+        await passwordErrors(registerDto(password), 'password'),
+      ).toHaveLength(1);
+      expect(
+        await passwordErrors(resetDto(password), 'newPassword'),
+      ).toHaveLength(1);
+    }
+  });
+
   it('returns a Portuguese message describing the rule', async () => {
     const [error] = await passwordErrors(registerDto('abc'), 'password');
     expect(Object.values(error.constraints ?? {})).toContain(
-      'A senha deve ter pelo menos 8 caracteres, com pelo menos uma letra e um número.',
+      PASSWORD_POLICY_MESSAGE,
     );
   });
 });

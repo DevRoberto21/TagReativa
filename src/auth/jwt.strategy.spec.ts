@@ -12,6 +12,13 @@ describe('JwtStrategy', () => {
     strategy = new JwtStrategy(prisma as unknown as PrismaService);
   });
 
+  it('only accepts HS256-signed tokens', () => {
+    const opts = (
+      strategy as unknown as { _verifOpts: { algorithms: string[] } }
+    )._verifOpts;
+    expect(opts.algorithms).toEqual(['HS256']);
+  });
+
   it('accepts a token whose version matches the user', async () => {
     prisma.user.findUnique.mockResolvedValue({ tokenVersion: 2 });
 

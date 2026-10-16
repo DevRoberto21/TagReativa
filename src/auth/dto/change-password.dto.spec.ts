@@ -25,6 +25,26 @@ describe('ChangePasswordDto', () => {
     }
   });
 
+  it('rejects a new password longer than 72 bytes', async () => {
+    const errors = await validate(
+      plainToInstance(ChangePasswordDto, {
+        currentPassword: 'current-pass1',
+        newPassword: 'a1' + 'x'.repeat(71),
+      }),
+    );
+    expect(errors.map((e) => e.property)).toEqual(['newPassword']);
+  });
+
+  it('rejects a current password longer than 72 characters', async () => {
+    const errors = await validate(
+      plainToInstance(ChangePasswordDto, {
+        currentPassword: 'x'.repeat(73),
+        newPassword: 'brand-new2',
+      }),
+    );
+    expect(errors.map((e) => e.property)).toEqual(['currentPassword']);
+  });
+
   it('accepts a current password with a policy-compliant new one', async () => {
     const dto = plainToInstance(ChangePasswordDto, {
       currentPassword: 'current-pass1',

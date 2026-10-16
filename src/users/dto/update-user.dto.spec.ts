@@ -29,4 +29,11 @@ describe('UpdateUserDto', () => {
     const errors = await validate(dto);
     expect(errors.map((e) => e.property)).toEqual(['name']);
   });
+
+  it('rejects a password longer than 72 characters', async () => {
+    const errors = await validate(
+      plainToInstance(UpdateUserDto, { password: 'x'.repeat(73) }),
+    );
+    expect(errors.map((e) => e.property)).toEqual(['password']);
+  });
 });

@@ -31,5 +31,6 @@ export class UpdateUserDto {
   // Current password, required to confirm any profile change.
   @IsString()
   @IsNotEmpty()
+  @MaxLength(72)
   password!: string;
 }

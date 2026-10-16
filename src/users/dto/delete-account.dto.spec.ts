@@ -14,4 +14,11 @@ describe('DeleteAccountDto', () => {
     const dto = plainToInstance(DeleteAccountDto, { password: 'senha123' });
     expect(await validate(dto)).toHaveLength(0);
   });
+
+  it('rejects a password longer than 72 characters', async () => {
+    const errors = await validate(
+      plainToInstance(DeleteAccountDto, { password: 'x'.repeat(73) }),
+    );
+    expect(errors.map((e) => e.property)).toEqual(['password']);
+  });
 });

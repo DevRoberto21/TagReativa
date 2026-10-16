@@ -16,7 +16,7 @@ import { JwtStrategy } from './jwt.strategy';
       useFactory: () => {
         const secret = process.env.JWT_SECRET;
         if (!secret) throw new Error('FATAL: JWT_SECRET não definido.');
-        return { secret, signOptions: { expiresIn: '7d' } };
+        return { secret, signOptions: { expiresIn: '7d', algorithm: 'HS256' } };
       },
     }),
   ],
