@@ -66,29 +66,38 @@ export class PetsService {
 
     return pet;
   }
+
+  // The write itself filters by owner, so ownership cannot change between
+  // check and write. Only on a miss do we look up the pet to keep the
+  // 404/403 answers.
+  private async rejectWrite(
+    err: unknown,
+    petId: string,
+    ownerId: string,
+  ): Promise<never> {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === 'P2025'
+    ) {
+      await this.findOne(petId, ownerId);
+    }
+    throw err;
+  }
+
   async updatePet(
     petId: string,
     ownerId: string,
     dto: UpdatePetDto,
   ): Promise<Pet> {
-    const pet = await this.prisma.pet.findUnique({ where: { id: petId } });
-
-    if (!pet) throw new NotFoundException('Pet não encontrado.');
-    if (pet.ownerId !== ownerId) throw new ForbiddenException('Acesso negado.');
-
-    return this.prisma.pet.update({
-      where: { id: petId },
-      data: { ...dto },
-    });
+    return this.prisma.pet
+      .update({ where: { id: petId, ownerId }, data: { ...dto } })
+      .catch((err) => this.rejectWrite(err, petId, ownerId));
   }
 
   async deletePet(petId: string, ownerId: string): Promise<void> {
-    const pet = await this.prisma.pet.findUnique({ where: { id: petId } });
-
-    if (!pet) throw new NotFoundException('Pet não encontrado.');
-    if (pet.ownerId !== ownerId) throw new ForbiddenException('Acesso negado.');
-
-    await this.prisma.pet.delete({ where: { id: petId } });
+    await this.prisma.pet
+      .delete({ where: { id: petId, ownerId } })
+      .catch((err) => this.rejectWrite(err, petId, ownerId));
   }
 
   async updateStatus(
@@ -96,15 +105,9 @@ export class PetsService {
     ownerId: string,
     status: PetStatus,
   ): Promise<Pet> {
-    const pet = await this.prisma.pet.findUnique({ where: { id: petId } });
-
-    if (!pet) throw new NotFoundException('Pet não encontrado.');
-    if (pet.ownerId !== ownerId) throw new ForbiddenException('Acesso negado.');
-
-    return this.prisma.pet.update({
-      where: { id: petId },
-      data: { status },
-    });
+    return this.prisma.pet
+      .update({ where: { id: petId, ownerId }, data: { status } })
+      .catch((err) => this.rejectWrite(err, petId, ownerId));
   }
 
   async findScans(petId: string, ownerId: string) {

@@ -6,19 +6,22 @@ import {
   IsInt,
   Min,
   Max,
-  IsBoolean,
+  IsNotEmpty,
   ValidateIf,
 } from 'class-validator';
 import { IsCloudinaryPhotoUrl } from '../../cloudinary/is-cloudinary-photo-url';
 
+// name and species are required columns: absent means "keep", null is refused.
 export class UpdatePetDto {
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
+  @IsNotEmpty()
   @IsString()
   @MinLength(2)
   @MaxLength(60)
   name?: string;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
+  @IsNotEmpty()
   @IsString()
   @MinLength(2)
   @MaxLength(40)
@@ -38,10 +41,6 @@ export class UpdatePetDto {
   @Min(1)
   @Max(50)
   age?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  physicalFallbackConsent?: boolean;
 
   @ValidateIf((object, value) => value !== null)
   @IsString()
