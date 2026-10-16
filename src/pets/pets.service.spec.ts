@@ -102,6 +102,17 @@ describe('PetsService', () => {
         where: { petId: 'pet-1' },
         orderBy: { timestamp: 'desc' },
         take: 200,
+        select: {
+          id: true,
+          petId: true,
+          latitude: true,
+          longitude: true,
+          locationSource: true,
+          consentGranted: true,
+          consentVersion: true,
+          timestamp: true,
+          alertSent: true,
+        },
       });
     });
   });

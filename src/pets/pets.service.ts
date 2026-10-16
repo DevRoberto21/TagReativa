@@ -120,6 +120,18 @@ export class PetsService {
       where: { petId },
       orderBy: { timestamp: 'desc' },
       take: MAX_SCANS_RETURNED,
+      // ipAddress and deviceId identify the finder; the owner never needs them.
+      select: {
+        id: true,
+        petId: true,
+        latitude: true,
+        longitude: true,
+        locationSource: true,
+        consentGranted: true,
+        consentVersion: true,
+        timestamp: true,
+        alertSent: true,
+      },
     });
   }
 }

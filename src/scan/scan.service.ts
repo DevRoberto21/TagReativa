@@ -26,6 +26,9 @@ const MAX_ALERTS_PER_DEVICE = 3;
 const MAX_ALERTS_PER_SOURCE = 3;
 const MAX_ALERTS_PER_PET = 10;
 const IP_LOOKUP_TIMEOUT_MS = 3000;
+// Loopback, private, link-local and unique-local ranges, also IPv4-mapped.
+const PRIVATE_IP =
+  /^(?:::ffff:)?(?:127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|169\.254\.)|^(?:::1$|fe80:|f[cd][0-9a-f]{2}:)/i;
 
 interface IpApiResponse {
   status: string;
@@ -50,8 +53,7 @@ export class ScanService {
   private async resolveLocationByIp(
     ip: string,
   ): Promise<{ latitude: number | null; longitude: number | null }> {
-    const privateIp = /^(127\.|::1$|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
-    if (privateIp.test(ip)) return { latitude: null, longitude: null };
+    if (PRIVATE_IP.test(ip)) return { latitude: null, longitude: null };
 
     try {
       const res = await fetch(`http://ip-api.com/json/${ip}`, {
@@ -175,15 +177,17 @@ export class ScanService {
     let latitude = dto.latitude ?? null;
     let longitude = dto.longitude ?? null;
 
-    if (!hasGps) {
+    const alertSent =
+      pet.status === 'LOST' &&
+      (await this.canSendAlert(pet.id, dto.ipAddress, dto.deviceId));
+
+    // The finder's address goes to a third party only when the owner will
+    // actually get an alert, and only with the finder's consent.
+    if (!hasGps && alertSent && dto.consentGranted) {
       const resolved = await this.resolveLocationByIp(dto.ipAddress);
       latitude = resolved.latitude;
       longitude = resolved.longitude;
     }
-
-    const alertSent =
-      pet.status === 'LOST' &&
-      (await this.canSendAlert(pet.id, dto.ipAddress, dto.deviceId));
 
     const scanLog = await this.prisma.scanLog.create({
       data: {
@@ -205,7 +209,7 @@ export class ScanService {
       const isGps = locationSource === LocationSource.GPS;
       const message = location
         ? isGps
-          ? `Seu pet ${pet.name} foi encontrado! 📍 Localização GPS: https://maps.google.com/?q=${latitude},${longitude}`
+          ? `Seu pet ${pet.name} foi encontrado! 📍 Localização informada pelo aparelho de quem leu a tag (não verificada): https://maps.google.com/?q=${latitude},${longitude}`
           : `Seu pet ${pet.name} foi encontrado! O resgatador negou o GPS. Endereço baseado no IP (pode estar impreciso): https://maps.google.com/?q=${latitude},${longitude}`
         : `Seu pet ${pet.name} foi encontrado! Não foi possível obter localização.`;
 

@@ -286,18 +286,119 @@ describe('ScanService', () => {
     const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
       json: () => Promise.resolve({ status: 'success', lat: 1, lon: 2 }),
     } as Response);
-    prisma.pet.findUnique.mockResolvedValue({
-      ...basePet,
-      status: PetStatus.SAFE,
-    });
+    prisma.pet.findUnique.mockResolvedValue(basePet);
 
-    await service.processScan({ ...scanDto, ipAddress: '203.0.113.9' });
+    await service.processScan({
+      ...scanDto,
+      consentGranted: true,
+      ipAddress: '203.0.113.9',
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://ip-api.com/json/203.0.113.9',
       { signal: expect.any(AbortSignal) as AbortSignal },
     );
     fetchMock.mockRestore();
+  });
+
+  describe('IP geolocation lookup', () => {
+    let fetchMock: jest.SpyInstance;
+    const publicScan = {
+      ...scanDto,
+      consentGranted: true,
+      ipAddress: '203.0.113.9',
+    };
+
+    beforeEach(() => {
+      fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+        json: () => Promise.resolve({ status: 'success', lat: 1, lon: 2 }),
+      } as Response);
+      prisma.pet.findUnique.mockResolvedValue(basePet);
+    });
+
+    afterEach(() => fetchMock.mockRestore());
+
+    it('looks the address up when an alert will be sent', async () => {
+      await service.processScan(publicScan);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips the lookup when the pet is not LOST', async () => {
+      prisma.pet.findUnique.mockResolvedValue({
+        ...basePet,
+        status: PetStatus.SAFE,
+      });
+
+      await service.processScan(publicScan);
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('skips the lookup without consent', async () => {
+      await service.processScan({ ...publicScan, consentGranted: false });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('skips the lookup when the alert cap is reached', async () => {
+      prisma.scanLog.count.mockResolvedValue(10);
+
+      await service.processScan(publicScan);
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      '127.0.0.1',
+      '::1',
+      '10.1.2.3',
+      '172.16.0.1',
+      '192.168.0.1',
+      '169.254.1.1',
+      '::ffff:10.0.0.1',
+      '::ffff:192.168.1.1',
+      '::FFFF:127.0.0.1',
+      'fe80::1',
+      'fc00::1',
+      'fd12:3456::1',
+    ])('never sends the private address %s to ip-api', async (ipAddress) => {
+      await service.processScan({ ...publicScan, ipAddress });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('still looks up an IPv4-mapped public address', async () => {
+      await service.processScan({
+        ...publicScan,
+        ipAddress: '::ffff:203.0.113.9',
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('tells the owner the finder location is not verified', async () => {
+    prisma.pet.findUnique.mockResolvedValue(basePet);
+    telegram.sendMessage.mockResolvedValue(true);
+    email.send.mockResolvedValue(true);
+
+    await service.processScan({
+      ...scanDto,
+      consentGranted: true,
+      latitude: -8.05,
+      longitude: -34.9,
+    });
+
+    const [, text] = telegram.sendMessage.mock.calls[0] as [string, string];
+    expect(text).toContain('informada pelo aparelho de quem leu a tag');
+    expect(text).toContain('não verificada');
+    expect(text).not.toContain('Localização GPS');
+    expect(email.send).toHaveBeenCalledWith(
+      'owner@example.com',
+      expect.any(String),
+      text,
+    );
   });
 
   describe('alert rate limit', () => {
