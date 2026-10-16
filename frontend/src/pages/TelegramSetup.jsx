@@ -68,6 +68,8 @@ export default function TelegramSetup() {
         // Open the tab synchronously so popup blockers treat it as a user
         // action; the URL is filled in once the backend answers.
         const tab = window.open('', '_blank');
+        // Blank tab inherits a live opener; cut it before loading the external URL.
+        if (tab) tab.opener = null;
         try {
             const { data } = await api.post('/telegram/link');
             setLinkUrl(data.url);
