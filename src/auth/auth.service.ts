@@ -4,6 +4,8 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes, randomInt, createHash } from 'crypto';
@@ -25,6 +27,12 @@ const FORGOT_PASSWORD_GENERIC_MESSAGE =
 const TWO_FACTOR_CODE_TTL_MS = 5 * 60 * 1000;
 const MAX_TWO_FACTOR_ATTEMPTS = 5;
 const TWO_FACTOR_GENERIC_ERROR = 'Código inválido ou expirado.';
+// The per-code limit alone resets on every password login, so wrong codes are
+// also counted per account across challenges.
+const MAX_TWO_FACTOR_ACCOUNT_FAILURES = 10;
+const TWO_FACTOR_ACCOUNT_LOCK_MS = 15 * 60 * 1000;
+const TWO_FACTOR_LOCKED_MESSAGE =
+  'Muitas tentativas de verificação. Tente novamente em 15 minutos ou redefina sua senha.';
 // Compared against when the email is unknown, so login takes as long as a
 // real password check and response time does not reveal registered emails.
 // Same cost factor (10) as the hashes created at registration.
@@ -55,6 +63,12 @@ export class AuthService {
     if (!valid) throw new UnauthorizedException('Credenciais inválidas.');
 
     if (user.twoFactorEnabled) {
+      if (user.twoFactorLockedUntil && user.twoFactorLockedUntil > new Date()) {
+        throw new HttpException(
+          TWO_FACTOR_LOCKED_MESSAGE,
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
       const loginToken = await this.issueTwoFactorCode(
         user.id,
         user.email,
@@ -167,6 +181,7 @@ export class AuthService {
           data: { usedAt: new Date() },
         });
       }
+      await this.registerTwoFactorFailure(record.userId, record.id);
       throw new BadRequestException(TWO_FACTOR_GENERIC_ERROR);
     }
 
@@ -182,7 +197,39 @@ export class AuthService {
       throw new BadRequestException(TWO_FACTOR_GENERIC_ERROR);
     }
 
+    if (user.twoFactorFailedAttempts > 0) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { twoFactorFailedAttempts: 0 },
+      });
+    }
+
     return { access_token: this.signAccessToken(user) };
+  }
+
+  private async registerTwoFactorFailure(
+    userId: string,
+    codeId: string,
+  ): Promise<void> {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorFailedAttempts: { increment: 1 } },
+      select: { twoFactorFailedAttempts: true },
+    });
+    if (user.twoFactorFailedAttempts < MAX_TWO_FACTOR_ACCOUNT_FAILURES) return;
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        twoFactorFailedAttempts: 0,
+        twoFactorLockedUntil: new Date(Date.now() + TWO_FACTOR_ACCOUNT_LOCK_MS),
+      },
+    });
+    // The pending code dies with the lock, so it cannot be guessed further.
+    await this.prisma.twoFactorCode.update({
+      where: { id: codeId },
+      data: { usedAt: new Date() },
+    });
   }
 
   async enableTwoFactor(userId: string): Promise<{ message: string }> {
@@ -344,7 +391,12 @@ export class AuthService {
 
     await this.prisma.user.update({
       where: { id: resetToken.userId },
-      data: { passwordHash, tokenVersion: { increment: 1 } },
+      data: {
+        passwordHash,
+        tokenVersion: { increment: 1 },
+        twoFactorFailedAttempts: 0,
+        twoFactorLockedUntil: null,
+      },
     });
 
     await this.prisma.passwordResetToken.update({

@@ -185,6 +185,8 @@ describe('AuthService', () => {
         data: {
           passwordHash: expect.any(String),
           tokenVersion: { increment: 1 },
+          twoFactorFailedAttempts: 0,
+          twoFactorLockedUntil: null,
         },
       });
       expect(prisma.passwordResetToken.update).toHaveBeenCalledWith({
@@ -320,6 +322,44 @@ describe('AuthService', () => {
         expect.stringMatching(/^\$2[aby]\$10\$/),
       );
     });
+
+    it('refuses to issue a 2FA code while the account is locked', async () => {
+      const passwordHash = await bcrypt.hash('correct-password', 10);
+      usersService.findByEmail.mockResolvedValue({
+        ...twoFactorUser,
+        passwordHash,
+        twoFactorLockedUntil: new Date(Date.now() + 60_000),
+      });
+
+      await expect(
+        service.login({
+          email: 'twofactor@example.com',
+          password: 'correct-password',
+        }),
+      ).rejects.toMatchObject({ status: 429 });
+      expect(prisma.twoFactorCode.create).not.toHaveBeenCalled();
+      expect(emailService.send).not.toHaveBeenCalled();
+    });
+
+    it('issues a 2FA code again once the lock has expired', async () => {
+      const passwordHash = await bcrypt.hash('correct-password', 10);
+      usersService.findByEmail.mockResolvedValue({
+        ...twoFactorUser,
+        passwordHash,
+        twoFactorLockedUntil: new Date(Date.now() - 1000),
+      });
+      prisma.twoFactorCode.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.twoFactorCode.create.mockResolvedValue({});
+      emailService.send.mockResolvedValue(true);
+
+      const result = await service.login({
+        email: 'twofactor@example.com',
+        password: 'correct-password',
+      });
+
+      expect(result).toMatchObject({ twoFactorRequired: true });
+      expect(prisma.twoFactorCode.create).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('verifyTwoFactorLogin', () => {
@@ -333,6 +373,78 @@ describe('AuthService', () => {
       usedAt: null as Date | null,
       createdAt: new Date(),
     };
+
+    beforeEach(() => {
+      prisma.user.update.mockResolvedValue({ twoFactorFailedAttempts: 1 });
+    });
+
+    it('counts a wrong code against the account, not only the challenge', async () => {
+      const codeHash = createHash('sha256').update('999999').digest('hex');
+      prisma.twoFactorCode.findUnique.mockResolvedValue({
+        ...pendingCode,
+        codeHash,
+      });
+      prisma.twoFactorCode.update.mockResolvedValue({ attempts: 1 });
+
+      await expect(
+        service.verifyTwoFactorLogin({ loginToken: 'raw', code: '111111' }),
+      ).rejects.toThrow('Código inválido ou expirado.');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-2' },
+        data: { twoFactorFailedAttempts: { increment: 1 } },
+        select: { twoFactorFailedAttempts: true },
+      });
+    });
+
+    it('locks the account after 10 wrong codes across challenges', async () => {
+      const codeHash = createHash('sha256').update('999999').digest('hex');
+      prisma.twoFactorCode.findUnique.mockResolvedValue({
+        ...pendingCode,
+        codeHash,
+      });
+      prisma.twoFactorCode.update.mockResolvedValue({ attempts: 1 });
+      prisma.user.update
+        .mockReset()
+        .mockResolvedValueOnce({ twoFactorFailedAttempts: 10 })
+        .mockResolvedValueOnce({});
+
+      await expect(
+        service.verifyTwoFactorLogin({ loginToken: 'raw', code: '111111' }),
+      ).rejects.toThrow('Código inválido ou expirado.');
+
+      expect(prisma.user.update).toHaveBeenLastCalledWith({
+        where: { id: 'user-2' },
+        data: {
+          twoFactorFailedAttempts: 0,
+          twoFactorLockedUntil: expect.any(Date) as Date,
+        },
+      });
+      expect(prisma.twoFactorCode.update).toHaveBeenLastCalledWith({
+        where: { id: 'tfc-1' },
+        data: { usedAt: expect.any(Date) as Date },
+      });
+    });
+
+    it('clears the account failure counter on a correct code', async () => {
+      const codeHash = createHash('sha256').update('123456').digest('hex');
+      prisma.twoFactorCode.findUnique.mockResolvedValue({
+        ...pendingCode,
+        codeHash,
+      });
+      prisma.twoFactorCode.update.mockResolvedValue({});
+      prisma.user.findUnique.mockResolvedValue({
+        ...twoFactorUser,
+        twoFactorFailedAttempts: 4,
+      });
+
+      await service.verifyTwoFactorLogin({ loginToken: 'raw', code: '123456' });
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-2' },
+        data: { twoFactorFailedAttempts: 0 },
+      });
+    });
 
     it('returns an access token for a valid, unexpired, unused code', async () => {
       const rightCode = '123456';

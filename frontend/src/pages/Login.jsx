@@ -34,8 +34,12 @@ export default function Login() {
       }
       localStorage.setItem('access_token', data.access_token);
       navigate('/dashboard');
-    } catch {
-      setError('E-mail ou senha inválidos.');
+    } catch (err) {
+      setError(
+        err.response?.status === 429
+          ? 'Muitas tentativas. Aguarde alguns minutos e tente novamente, ou redefina sua senha.'
+          : 'E-mail ou senha inválidos.',
+      );
     }
   }
 
