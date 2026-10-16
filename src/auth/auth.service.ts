@@ -245,7 +245,7 @@ export class AuthService {
   async confirmTwoFactor(
     userId: string,
     dto: ConfirmTwoFactorDto,
-  ): Promise<{ message: string }> {
+  ): Promise<{ message: string; access_token: string }> {
     const record = await this.prisma.twoFactorCode.findFirst({
       where: { userId, loginTokenHash: null, usedAt: null },
       orderBy: { createdAt: 'desc' },
@@ -283,27 +283,32 @@ export class AuthService {
       data: { usedAt: new Date() },
     });
 
-    await this.prisma.user.update({
+    // Changing 2FA signs out every other session; the returned token keeps
+    // this one logged in.
+    const updated = await this.prisma.user.update({
       where: { id: userId },
-      data: { twoFactorEnabled: true },
+      data: { twoFactorEnabled: true, tokenVersion: { increment: 1 } },
     });
 
-    return { message: '2FA ativado com sucesso.' };
+    return {
+      message: '2FA ativado com sucesso.',
+      access_token: this.signAccessToken(updated),
+    };
   }
 
   async disableTwoFactor(
     userId: string,
     dto: DisableTwoFactorDto,
-  ): Promise<{ message: string }> {
+  ): Promise<{ message: string; access_token: string }> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuário não encontrado.');
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Senha incorreta.');
 
-    await this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
-      data: { twoFactorEnabled: false },
+      data: { twoFactorEnabled: false, tokenVersion: { increment: 1 } },
     });
 
     void this.emailService
@@ -327,7 +332,10 @@ export class AuthService {
         );
       });
 
-    return { message: '2FA desativado com sucesso.' };
+    return {
+      message: '2FA desativado com sucesso.',
+      access_token: this.signAccessToken(updated),
+    };
   }
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
@@ -401,31 +409,34 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 10);
 
-    // A password reset also drops the Telegram channel: a chat bound from a
-    // stolen session must not outlive the credentials.
-    await this.prisma.user.update({
-      where: { id: resetToken.userId },
-      data: {
-        passwordHash,
-        tokenVersion: { increment: 1 },
-        twoFactorFailedAttempts: 0,
-        twoFactorLockedUntil: null,
-        telegramChatId: null,
-        telegramLinkedAt: null,
-      },
-    });
-    await this.prisma.telegramLinkToken.deleteMany({
-      where: { userId: resetToken.userId },
-    });
-
-    await this.prisma.passwordResetToken.update({
-      where: { id: resetToken.id },
-      data: { usedAt: new Date() },
-    });
-
-    await this.prisma.passwordResetToken.deleteMany({
-      where: { userId: resetToken.userId, id: { not: resetToken.id } },
-    });
+    // A password reset also drops the Telegram channel and pending 2FA
+    // challenges: nothing issued under the old credentials may outlive them.
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: resetToken.userId },
+        data: {
+          passwordHash,
+          tokenVersion: { increment: 1 },
+          twoFactorFailedAttempts: 0,
+          twoFactorLockedUntil: null,
+          telegramChatId: null,
+          telegramLinkedAt: null,
+        },
+      }),
+      this.prisma.telegramLinkToken.deleteMany({
+        where: { userId: resetToken.userId },
+      }),
+      this.prisma.twoFactorCode.deleteMany({
+        where: { userId: resetToken.userId },
+      }),
+      this.prisma.passwordResetToken.update({
+        where: { id: resetToken.id },
+        data: { usedAt: new Date() },
+      }),
+      this.prisma.passwordResetToken.deleteMany({
+        where: { userId: resetToken.userId, id: { not: resetToken.id } },
+      }),
+    ]);
 
     return { message: 'Senha redefinida com sucesso.' };
   }
@@ -445,16 +456,20 @@ export class AuthService {
 
     // Bumping tokenVersion signs out every other session; the token returned
     // below keeps the one that made the change logged in.
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        passwordHash,
-        tokenVersion: { increment: 1 },
-        telegramChatId: null,
-        telegramLinkedAt: null,
-      },
-    });
-    await this.prisma.telegramLinkToken.deleteMany({ where: { userId } });
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          passwordHash,
+          tokenVersion: { increment: 1 },
+          telegramChatId: null,
+          telegramLinkedAt: null,
+        },
+      }),
+      this.prisma.telegramLinkToken.deleteMany({ where: { userId } }),
+      this.prisma.twoFactorCode.deleteMany({ where: { userId } }),
+      this.prisma.passwordResetToken.deleteMany({ where: { userId } }),
+    ]);
 
     void this.emailService
       .send(

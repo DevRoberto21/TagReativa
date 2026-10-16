@@ -40,6 +40,7 @@ describe('AuthService', () => {
       update: jest.Mock;
     };
     user: { update: jest.Mock; findUnique: jest.Mock };
+    $transaction: jest.Mock;
   };
   let emailService: { send: jest.Mock };
   let jwtService: { sign: jest.Mock };
@@ -82,6 +83,7 @@ describe('AuthService', () => {
         update: jest.fn(),
       },
       user: { update: jest.fn(), findUnique: jest.fn() },
+      $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     };
     emailService = { send: jest.fn() };
     jwtService = { sign: jest.fn().mockReturnValue('signed-jwt') };
@@ -233,6 +235,10 @@ describe('AuthService', () => {
       expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({
         where: { userId: 'user-1', id: { not: 'reset-1' } },
       });
+      expect(prisma.twoFactorCode.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+      });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(result).toEqual({ message: 'Senha redefinida com sucesso.' });
     });
 
@@ -622,20 +628,31 @@ describe('AuthService', () => {
         codeHash,
       });
       prisma.twoFactorCode.update.mockResolvedValue({});
-      prisma.user.update.mockResolvedValue({});
+      prisma.user.update.mockResolvedValue({
+        ...existingUser,
+        tokenVersion: 4,
+      });
 
       const result = await service.confirmTwoFactor('user-1', {
         code: rightCode,
       });
 
-      expect(result).toEqual({ message: '2FA ativado com sucesso.' });
+      expect(result).toEqual({
+        message: '2FA ativado com sucesso.',
+        access_token: 'signed-jwt',
+      });
+      expect(jwtService.sign).toHaveBeenCalledWith({
+        sub: 'user-1',
+        email: 'owner@example.com',
+        ver: 4,
+      });
       expect(prisma.twoFactorCode.findFirst).toHaveBeenCalledWith({
         where: { userId: 'user-1', loginTokenHash: null, usedAt: null },
         orderBy: { createdAt: 'desc' },
       });
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'user-1' },
-        data: { twoFactorEnabled: true },
+        data: { twoFactorEnabled: true, tokenVersion: { increment: 1 } },
       });
     });
 
@@ -673,17 +690,28 @@ describe('AuthService', () => {
         ...twoFactorUser,
         passwordHash,
       });
-      prisma.user.update.mockResolvedValue({});
+      prisma.user.update.mockResolvedValue({
+        ...twoFactorUser,
+        tokenVersion: 4,
+      });
       emailService.send.mockResolvedValue(true);
 
       const result = await service.disableTwoFactor('user-2', {
         password: 'current-password',
       });
 
-      expect(result).toEqual({ message: '2FA desativado com sucesso.' });
+      expect(result).toEqual({
+        message: '2FA desativado com sucesso.',
+        access_token: 'signed-jwt',
+      });
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'user-2' },
-        data: { twoFactorEnabled: false },
+        data: { twoFactorEnabled: false, tokenVersion: { increment: 1 } },
+      });
+      expect(jwtService.sign).toHaveBeenCalledWith({
+        sub: 'user-2',
+        email: 'twofactor@example.com',
+        ver: 4,
       });
       expect(emailService.send).toHaveBeenCalledTimes(1);
       const [to, subject] = emailService.send.mock.calls[0];
@@ -737,6 +765,13 @@ describe('AuthService', () => {
       expect(prisma.telegramLinkToken.deleteMany).toHaveBeenCalledWith({
         where: { userId: 'user-1' },
       });
+      expect(prisma.twoFactorCode.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+      });
+      expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+      });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       const [{ data }] = prisma.user.update.mock.calls[0] as [
         { data: { passwordHash: string } },
       ];

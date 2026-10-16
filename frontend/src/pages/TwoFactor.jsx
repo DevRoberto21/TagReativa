@@ -69,7 +69,9 @@ export default function TwoFactor() {
     setError('');
     setSubmitting(true);
     try {
-      await api.post('/auth/2fa/confirm', { code });
+      const { data } = await api.post('/auth/2fa/confirm', { code });
+      // The change signs out every other session; this token keeps this one.
+      localStorage.setItem('access_token', data.access_token);
       setEnabled(true);
       setStep('idle');
       setCode('');
@@ -86,7 +88,8 @@ export default function TwoFactor() {
     setError('');
     setSubmitting(true);
     try {
-      await api.post('/auth/2fa/disable', { password });
+      const { data } = await api.post('/auth/2fa/disable', { password });
+      localStorage.setItem('access_token', data.access_token);
       setEnabled(false);
       setStep('idle');
       setPassword('');
