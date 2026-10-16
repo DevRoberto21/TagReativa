@@ -47,7 +47,7 @@ export default function NewPet() {
         <PhotoPicker upload={upload} label="Carregar Imagem Digital" alt="Preview" />
 
         <form onSubmit={handleSubmit} className="stack">
-          <Field label="Identificação / Nome" placeholder="Ex: Rex" value={name} onChange={e => setName(e.target.value)} required />
+          <Field label="Identificação / Nome" placeholder="Ex: Rex" value={name} onChange={e => setName(e.target.value)} required maxLength={60} />
 
           <Field as="select" label="Espécie" value={species} onChange={e => setSpecies(e.target.value)}>
             <option>Cachorro</option>
@@ -55,7 +55,7 @@ export default function NewPet() {
             <option>Outro</option>
           </Field>
 
-          <Field label="Raça (opcional)" placeholder="Ex: Labrador" value={breed} onChange={e => setBreed(e.target.value)} />
+          <Field label="Raça (opcional)" placeholder="Ex: Labrador" value={breed} onChange={e => setBreed(e.target.value)} maxLength={60} />
 
           <Field label="Idade estimada (anos - opcional)" type="number" placeholder="Ex: 3" value={age} onChange={e => setAge(e.target.value)} min={1} max={50} />
 
@@ -64,6 +64,7 @@ export default function NewPet() {
             label="Instruções médicas ou de cuidado (opcional)"
             placeholder="Ex: Necessita de medicação controlada, assusta-se com facilidade..."
             value={notes} onChange={e => setNotes(e.target.value)}
+            maxLength={1000}
           />
 
           {(error || uploadError) && <Notice tone="error">{error || uploadError}</Notice>}

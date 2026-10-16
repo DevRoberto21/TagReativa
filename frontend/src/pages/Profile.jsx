@@ -127,7 +127,7 @@ export default function Profile() {
 
             {editing && (
               <form onSubmit={handleSubmit} className="stack">
-                <Field label="Nome Completo" value={name} onChange={e => setName(e.target.value)} required />
+                <Field label="Nome Completo" value={name} onChange={e => setName(e.target.value)} required maxLength={80} />
 
                 <Field label="E-mail" value={profile.email} readOnly hint="O e-mail da conta não pode ser alterado." />
 

@@ -2,6 +2,7 @@ import {
   IsOptional,
   IsString,
   MinLength,
+  MaxLength,
   IsInt,
   Min,
   Max,
@@ -14,15 +15,18 @@ export class UpdatePetDto {
   @IsOptional()
   @IsString()
   @MinLength(2)
+  @MaxLength(60)
   name?: string;
 
   @IsOptional()
   @IsString()
   @MinLength(2)
+  @MaxLength(40)
   species?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(60)
   breed?: string;
 
   @IsOptional()
@@ -41,6 +45,7 @@ export class UpdatePetDto {
 
   @ValidateIf((object, value) => value !== null)
   @IsString()
+  @MaxLength(1000)
   @IsOptional()
   notes?: string | null;
 }

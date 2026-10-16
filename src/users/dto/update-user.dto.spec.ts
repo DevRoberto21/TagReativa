@@ -20,4 +20,13 @@ describe('UpdateUserDto', () => {
     });
     expect(await validate(dto)).toHaveLength(0);
   });
+
+  it('rejects a name longer than 80 characters', async () => {
+    const dto = plainToInstance(UpdateUserDto, {
+      name: 'N'.repeat(81),
+      password: 'senha123',
+    });
+    const errors = await validate(dto);
+    expect(errors.map((e) => e.property)).toEqual(['name']);
+  });
 });

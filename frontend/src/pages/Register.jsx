@@ -62,7 +62,7 @@ export default function Register() {
       footer={<Link to="/login">Já possui conta vinculada? Acessar</Link>}
     >
       <form onSubmit={handleSubmit} className="stack">
-        <Field label="Nome Completo" name="name" autoComplete="name" value={form.name} onChange={handleChange} required />
+        <Field label="Nome Completo" name="name" autoComplete="name" value={form.name} onChange={handleChange} required maxLength={80} />
         <Field label="E-mail de contato" name="email" type="email" autoComplete="email" value={form.email} onChange={handleChange} required />
         <Field
           label="WhatsApp"

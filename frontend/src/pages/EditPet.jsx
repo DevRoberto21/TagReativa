@@ -83,17 +83,17 @@ export default function EditPet() {
         <PhotoPicker upload={upload} label="Alterar Registro Fotográfico" />
 
         <form onSubmit={handleSubmit} className="stack">
-          <Field label="Nome Cadastrado" value={name} onChange={e => setName(e.target.value)} required />
+          <Field label="Nome Cadastrado" value={name} onChange={e => setName(e.target.value)} required maxLength={60} />
 
           <Field as="select" label="Espécie" value={species} onChange={e => setSpecies(e.target.value)}>
             <option>Cachorro</option><option>Gato</option><option>Outro</option>
           </Field>
 
-          <Field label="Raça" value={breed} onChange={e => setBreed(e.target.value)} />
+          <Field label="Raça" value={breed} onChange={e => setBreed(e.target.value)} maxLength={60} />
 
           <Field label="Idade (anos)" type="number" value={age} onChange={e => setAge(e.target.value)} min={1} max={50} />
 
-          <Field as="textarea" label="Observações de Resgate / Cuidados" value={notes} onChange={e => setNotes(e.target.value)} />
+          <Field as="textarea" label="Observações de Resgate / Cuidados" value={notes} onChange={e => setNotes(e.target.value)} maxLength={1000} />
 
           {(loadError || error || uploadError) && <Notice tone="error">{loadError || error || uploadError}</Notice>}
           <Button type="submit" block>Salvar Atualizações</Button>

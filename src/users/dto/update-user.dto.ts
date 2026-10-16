@@ -4,6 +4,7 @@ import {
   IsString,
   Matches,
   MinLength,
+  MaxLength,
   IsInt,
   Min,
 } from 'class-validator';
@@ -12,6 +13,7 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @MinLength(2)
+  @MaxLength(80)
   name?: string;
 
   @IsOptional()
