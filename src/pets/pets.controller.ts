@@ -37,8 +37,8 @@ export class PetsController {
   }
 
   @Post('photo-upload-signature')
-  getPhotoUploadSignature() {
-    return this.cloudinaryService.generateUploadSignature();
+  getPhotoUploadSignature(@Request() req: AuthenticatedRequest) {
+    return this.cloudinaryService.generateUploadSignature(req.user.userId);
   }
 
   @Get()

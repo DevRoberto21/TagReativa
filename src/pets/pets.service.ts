@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -9,6 +10,7 @@ import { UpdatePetDto } from './dto/update-pet.dto';
 import { PetStatus, Pet, Prisma } from '@prisma/client';
 import * as QRCode from 'qrcode';
 import { buildQrCodeUrl, generateShortCode } from './short-code';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 const MAX_SHORT_CODE_ATTEMPTS = 3;
 // Scans are written by anonymous callers, so the owner read is bounded.
@@ -16,7 +18,20 @@ const MAX_SCANS_RETURNED = 200;
 
 @Injectable()
 export class PetsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cloudinary: CloudinaryService,
+  ) {}
+
+  // The upload signature pins photos under the owner's prefix; checking it
+  // here stops one account from attaching another account's upload.
+  private assertOwnedPhoto(photoUrl: string, ownerId: string): void {
+    if (!this.cloudinary.isOwnedPhotoUrl(photoUrl, ownerId)) {
+      throw new BadRequestException(
+        'Foto inválida. Envie a imagem novamente pelo TagReativa.',
+      );
+    }
+  }
 
   private async createWithShortCode(ownerId: string, dto: CreatePetDto) {
     for (let attempt = 1; ; attempt++) {
@@ -43,6 +58,7 @@ export class PetsService {
   }
 
   async create(ownerId: string, dto: CreatePetDto) {
+    if (dto.photoUrl) this.assertOwnedPhoto(dto.photoUrl, ownerId);
     const pet = await this.createWithShortCode(ownerId, dto);
     const qrCodeUrl = buildQrCodeUrl(pet.shortCode);
     // Level Q survives scratches on a printed tag; the short URL keeps the
@@ -89,15 +105,30 @@ export class PetsService {
     ownerId: string,
     dto: UpdatePetDto,
   ): Promise<Pet> {
-    return this.prisma.pet
+    if (dto.photoUrl === undefined) {
+      return this.prisma.pet
+        .update({ where: { id: petId, ownerId }, data: { ...dto } })
+        .catch((err) => this.rejectWrite(err, petId, ownerId));
+    }
+
+    // Photos stored before uploads were bound to the owner are still accepted
+    // when resent unchanged; only a new photo must carry the owner's prefix.
+    const { photoUrl: oldPhotoUrl } = await this.findOne(petId, ownerId);
+    const replaced = dto.photoUrl !== oldPhotoUrl;
+    if (replaced && dto.photoUrl) this.assertOwnedPhoto(dto.photoUrl, ownerId);
+
+    const pet = await this.prisma.pet
       .update({ where: { id: petId, ownerId }, data: { ...dto } })
       .catch((err) => this.rejectWrite(err, petId, ownerId));
+    if (replaced) await this.cloudinary.deleteUnusedPhotos([oldPhotoUrl]);
+    return pet;
   }
 
   async deletePet(petId: string, ownerId: string): Promise<void> {
-    await this.prisma.pet
+    const pet = await this.prisma.pet
       .delete({ where: { id: petId, ownerId } })
       .catch((err) => this.rejectWrite(err, petId, ownerId));
+    await this.cloudinary.deleteUnusedPhotos([pet.photoUrl]);
   }
 
   async updateStatus(

@@ -56,6 +56,7 @@ export function usePhotoUpload(initialUrl = '') {
             formData.append('timestamp', sig.timestamp);
             formData.append('signature', sig.signature);
             formData.append('upload_preset', sig.uploadPreset);
+            formData.append('public_id', sig.publicId);
 
             const res = await fetch(
                 `https://api.cloudinary.com/v1_1/${sig.cloudName}/image/upload`,
