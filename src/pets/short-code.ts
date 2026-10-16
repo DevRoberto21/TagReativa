@@ -5,6 +5,11 @@ import { randomInt } from 'crypto';
 const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const SHORT_CODE_LENGTH = 8;
 
+export const SHORT_CODE_PATTERN = new RegExp(
+  `^[${ALPHABET}]{${SHORT_CODE_LENGTH}}$`,
+  'i',
+);
+
 export function generateShortCode(): string {
   let code = '';
   for (let i = 0; i < SHORT_CODE_LENGTH; i++) {

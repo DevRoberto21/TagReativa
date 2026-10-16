@@ -71,6 +71,7 @@ export class AuthController {
 
   @Post('2fa/disable')
   @UseGuards(AuthGuard('jwt'))
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   disableTwoFactor(
     @Request() req: AuthenticatedRequest,
     @Body() dto: DisableTwoFactorDto,

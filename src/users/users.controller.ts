@@ -39,12 +39,14 @@ export class UsersController {
 
   @UseGuards(AuthGuard('jwt'))
   @Patch('me')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   updateMe(@Body() dto: UpdateUserDto, @Request() req: AuthenticatedRequest) {
     return this.usersService.updateMe(req.user.userId, dto);
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Delete('me')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   deleteMe(
     @Body() dto: DeleteAccountDto,
     @Request() req: AuthenticatedRequest,

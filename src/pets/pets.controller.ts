@@ -7,6 +7,7 @@ import {
   Request,
   Patch,
   Param,
+  ParseUUIDPipe,
   Delete,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -45,13 +46,16 @@ export class PetsController {
     return this.petsService.findAllByOwner(req.user.userId);
   }
   @Get(':id')
-  findOne(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     return this.petsService.findOne(id, req.user.userId);
   }
 
   @Patch(':id/status')
   updateStatus(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePetStatusDto,
     @Request() req: AuthenticatedRequest,
   ) {
@@ -60,7 +64,7 @@ export class PetsController {
 
   @Patch(':id')
   updatePet(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePetDto,
     @Request() req: AuthenticatedRequest,
   ) {
@@ -68,12 +72,18 @@ export class PetsController {
   }
 
   @Delete(':id')
-  deletePet(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+  deletePet(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     return this.petsService.deletePet(id, req.user.userId);
   }
 
   @Get(':id/scans')
-  findScans(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+  findScans(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     return this.petsService.findScans(id, req.user.userId);
   }
 }
