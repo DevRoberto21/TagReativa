@@ -17,14 +17,12 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   const allowedOrigins = [
-    'http://localhost:5173',
+    process.env.NODE_ENV !== 'production' && 'http://localhost:5173',
     process.env.FRONTEND_URL,
   ].filter((origin): origin is string => Boolean(origin));
 
-  app.enableCors({
-    origin: allowedOrigins,
-    credentials: true,
-  });
+  // No credentials: auth uses a bearer header, never cookies.
+  app.enableCors({ origin: allowedOrigins });
 
   const port = parseInt(process.env.PORT ?? '3000', 10);
   await app.listen(port);

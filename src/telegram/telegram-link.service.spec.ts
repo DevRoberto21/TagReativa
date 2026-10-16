@@ -218,3 +218,25 @@ describe('TelegramLinkService', () => {
     });
   });
 });
+
+describe('TelegramLinkService config', () => {
+  const env = { ...process.env };
+  afterEach(() => {
+    process.env = { ...env };
+  });
+
+  const build = () =>
+    new TelegramLinkService({} as PrismaService, {} as TelegramService);
+
+  it('fails to start in production without TELEGRAM_BOT_USERNAME', () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.TELEGRAM_BOT_USERNAME;
+    expect(build).toThrow('TELEGRAM_BOT_USERNAME');
+  });
+
+  it('starts outside production without TELEGRAM_BOT_USERNAME', () => {
+    process.env.NODE_ENV = 'development';
+    delete process.env.TELEGRAM_BOT_USERNAME;
+    expect(build).not.toThrow();
+  });
+});

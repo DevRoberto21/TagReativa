@@ -870,3 +870,30 @@ describe('AuthService', () => {
     });
   });
 });
+
+describe('AuthService config', () => {
+  const env = { ...process.env };
+  afterEach(() => {
+    process.env = { ...env };
+  });
+
+  const build = () =>
+    new AuthService(
+      {} as UsersService,
+      {} as JwtService,
+      {} as PrismaService,
+      {} as EmailService,
+    );
+
+  it('fails to start in production without FRONTEND_URL', () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.FRONTEND_URL;
+    expect(build).toThrow('FRONTEND_URL');
+  });
+
+  it('starts outside production without FRONTEND_URL', () => {
+    process.env.NODE_ENV = 'development';
+    delete process.env.FRONTEND_URL;
+    expect(build).not.toThrow();
+  });
+});

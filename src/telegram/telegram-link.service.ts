@@ -24,7 +24,14 @@ export class TelegramLinkService {
   constructor(
     private prisma: PrismaService,
     private telegram: TelegramService,
-  ) {}
+  ) {
+    if (
+      process.env.NODE_ENV === 'production' &&
+      !process.env.TELEGRAM_BOT_USERNAME
+    ) {
+      throw new Error('FATAL: TELEGRAM_BOT_USERNAME não definido.');
+    }
+  }
 
   async createLink(userId: string): Promise<{ url: string }> {
     // base64url of 32 bytes is 43 chars, inside the 64-char limit Telegram

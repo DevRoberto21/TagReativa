@@ -48,7 +48,13 @@ export class AuthService {
     private jwtService: JwtService,
     private prisma: PrismaService,
     private emailService: EmailService,
-  ) {}
+  ) {
+    // Also guards buildQrCodeUrl: AuthService always boots, so production
+    // never reaches the localhost fallbacks.
+    if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_URL) {
+      throw new Error('FATAL: FRONTEND_URL não definido.');
+    }
+  }
 
   async login(
     dto: LoginDto,
