@@ -26,6 +26,7 @@ describe('AuthService', () => {
   let prisma: {
     passwordResetToken: {
       deleteMany: jest.Mock;
+      count: jest.Mock;
       create: jest.Mock;
       findUnique: jest.Mock;
       update: jest.Mock;
@@ -64,6 +65,7 @@ describe('AuthService', () => {
     prisma = {
       passwordResetToken: {
         deleteMany: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
         create: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn(),
@@ -94,6 +96,26 @@ describe('AuthService', () => {
   });
 
   describe('forgotPassword', () => {
+    it('stops issuing links once the account has 3 live tokens', async () => {
+      usersService.findByEmail.mockResolvedValue(existingUser);
+      prisma.passwordResetToken.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.passwordResetToken.count.mockResolvedValue(3);
+
+      const result = await service.forgotPassword({
+        email: 'owner@example.com',
+      });
+
+      expect(prisma.passwordResetToken.count).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+      });
+      expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+      expect(emailService.send).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        message:
+          'Se esse e-mail existir em nossa base, enviamos um link de recuperação.',
+      });
+    });
+
     it('creates a token and sends an email when the address exists', async () => {
       usersService.findByEmail.mockResolvedValue(existingUser);
       prisma.passwordResetToken.deleteMany.mockResolvedValue({ count: 0 });
@@ -105,7 +127,13 @@ describe('AuthService', () => {
       });
 
       expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({
-        where: { userId: 'user-1' },
+        where: {
+          userId: 'user-1',
+          OR: [
+            { usedAt: { not: null } },
+            { expiresAt: { lt: expect.any(Date) as Date } },
+          ],
+        },
       });
       expect(prisma.passwordResetToken.create).toHaveBeenCalledTimes(1);
       const createArgs = prisma.passwordResetToken.create.mock.calls[0][0];

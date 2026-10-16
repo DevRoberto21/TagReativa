@@ -22,6 +22,7 @@ import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
+const MAX_LIVE_RESET_TOKENS = 3;
 const FORGOT_PASSWORD_GENERIC_MESSAGE =
   'Se esse e-mail existir em nossa base, enviamos um link de recuperação.';
 const TWO_FACTOR_CODE_TTL_MS = 5 * 60 * 1000;
@@ -333,9 +334,20 @@ export class AuthService {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) return { message: FORGOT_PASSWORD_GENERIC_MESSAGE };
 
+    // Live tokens are kept: deleting them would let anyone who knows the
+    // address cancel a link the owner has just received.
     await this.prisma.passwordResetToken.deleteMany({
+      where: {
+        userId: user.id,
+        OR: [{ usedAt: { not: null } }, { expiresAt: { lt: new Date() } }],
+      },
+    });
+    const live = await this.prisma.passwordResetToken.count({
       where: { userId: user.id },
     });
+    if (live >= MAX_LIVE_RESET_TOKENS) {
+      return { message: FORGOT_PASSWORD_GENERIC_MESSAGE };
+    }
 
     const rawToken = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(rawToken).digest('hex');
