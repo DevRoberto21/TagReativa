@@ -95,7 +95,9 @@ export default function TelegramSetup() {
         }
     }
 
-    function handleLogout() {
+    async function handleLogout() {
+        // A failed server logout must not keep the user signed in locally.
+        await api.post('/auth/logout').catch(() => {});
         localStorage.removeItem('access_token');
         navigate('/login');
     }

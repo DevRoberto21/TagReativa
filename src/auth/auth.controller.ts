@@ -1,4 +1,11 @@
-import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Request,
+  HttpCode,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -50,6 +57,14 @@ export class AuthController {
     @Body() dto: ChangePasswordDto,
   ) {
     return this.authService.changePassword(req.user.userId, dto);
+  }
+
+  // tokenVersion is per account, so this ends the session on every device.
+  @Post('logout')
+  @UseGuards(AuthGuard('jwt'))
+  @HttpCode(204)
+  logout(@Request() req: AuthenticatedRequest) {
+    return this.authService.logout(req.user.userId);
   }
 
   @Post('2fa/enable')

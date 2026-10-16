@@ -856,4 +856,17 @@ describe('AuthService', () => {
       expect(emailService.send).not.toHaveBeenCalled();
     });
   });
+
+  describe('logout', () => {
+    it('bumps tokenVersion so every issued token stops working', async () => {
+      prisma.user.update.mockResolvedValue({});
+
+      await service.logout('user-1');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { tokenVersion: { increment: 1 } },
+      });
+    });
+  });
 });

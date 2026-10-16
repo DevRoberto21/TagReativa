@@ -10,6 +10,7 @@ import { AuthService } from './auth.service';
 
 describe('AuthController rate limiting', () => {
   let app: INestApplication<App>;
+  const logout = jest.fn();
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
@@ -23,6 +24,7 @@ describe('AuthController rate limiting', () => {
             enableTwoFactor: jest.fn(),
             changePassword: jest.fn(),
             disableTwoFactor: jest.fn(),
+            logout,
           },
         },
         { provide: APP_GUARD, useClass: ThrottlerGuard },
@@ -45,6 +47,11 @@ describe('AuthController rate limiting', () => {
 
   afterEach(async () => {
     await app.close();
+  });
+
+  it('logs the current user out with 204', async () => {
+    await request(app.getHttpServer()).post('/auth/logout').expect(204);
+    expect(logout).toHaveBeenCalledWith('user-1');
   });
 
   it('allows 5 login attempts per minute and blocks the 6th', async () => {
