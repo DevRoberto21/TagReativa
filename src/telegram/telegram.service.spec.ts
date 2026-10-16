@@ -1,3 +1,4 @@
+import { inspect } from 'util';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TelegramService } from './telegram.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -111,6 +112,22 @@ describe('TelegramService', () => {
     fetchMock.mockRejectedValueOnce(new Error('ECONNRESET'));
 
     expect(await service.sendMessage('42', 'Olá')).toBe(false);
+  });
+
+  it('never logs the bot token from a failed request', async () => {
+    const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+    fetchMock.mockRejectedValueOnce(
+      new TypeError('fetch failed', {
+        cause: new Error('https://api.telegram.org/bottest-token/sendMessage'),
+      }),
+    );
+
+    await service.sendMessage('42', 'Olá');
+
+    expect(inspect(log.mock.calls, { depth: null })).not.toContain(
+      'test-token',
+    );
+    log.mockRestore();
   });
 
   it('unlinks the chat when the owner blocked the bot (403)', async () => {

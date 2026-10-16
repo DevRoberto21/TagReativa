@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { describeError } from '../describe-error';
 
 interface TelegramApiResponse<T> {
   ok: boolean;
@@ -65,7 +66,7 @@ export class TelegramService {
       await this.call(method, payload, SEND_TIMEOUT_MS);
       return true;
     } catch (err) {
-      console.error(`[TELEGRAM] ${method} falhou:`, err);
+      console.error(`[TELEGRAM] ${method} falhou:`, describeError(err));
       // 403 means the owner blocked the bot or deleted the chat. Unlink so
       // later scans stop trying and the profile shows the channel as off.
       if (err instanceof TelegramApiError && err.status === 403) {

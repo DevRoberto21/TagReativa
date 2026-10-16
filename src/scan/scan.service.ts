@@ -4,6 +4,7 @@ import { TelegramService } from '../telegram/telegram.service';
 import { EmailService } from '../email/email.service';
 import { LocationSource, NotificationChannel, Prisma } from '@prisma/client';
 import { isUUID } from 'class-validator';
+import { describeError } from '../describe-error';
 
 export interface ScanDto {
   // Short code from the printed tag, or the pet UUID on tags printed before
@@ -65,7 +66,7 @@ export class ScanService {
 
       return { latitude: data.lat, longitude: data.lon };
     } catch (err) {
-      console.error('[IP-API] erro:', err);
+      console.error('[IP-API] erro:', describeError(err));
     }
 
     return { latitude: null, longitude: null };
@@ -81,7 +82,10 @@ export class ScanService {
         data: { scanLogId, channel, delivered },
       });
     } catch (err: unknown) {
-      console.error('[Notification] Falha ao persistir registro:', err);
+      console.error(
+        '[Notification] Falha ao persistir registro:',
+        describeError(err),
+      );
     }
   }
 
@@ -103,7 +107,10 @@ export class ScanService {
         );
       }
     } catch (err: unknown) {
-      console.error('[Notification] Falha ao enviar Telegram:', err);
+      console.error(
+        '[Notification] Falha ao enviar Telegram:',
+        describeError(err),
+      );
       return;
     }
     await this.persistNotification(
@@ -127,7 +134,10 @@ export class ScanService {
         message,
       );
     } catch (err: unknown) {
-      console.error('[Notification] Falha ao enviar Email:', err);
+      console.error(
+        '[Notification] Falha ao enviar Email:',
+        describeError(err),
+      );
       return;
     }
     await this.persistNotification(
@@ -221,10 +231,10 @@ export class ScanService {
         // The alert is already committed; a failed write must not block it.
         await this.prisma.scanLog
           .update({ where: { id: scanLog.id }, data: { latitude, longitude } })
-          .catch((err: Error) =>
+          .catch((err: unknown) =>
             console.error(
               '[ScanLog] Falha ao gravar localização:',
-              err.message,
+              describeError(err),
             ),
           );
       }

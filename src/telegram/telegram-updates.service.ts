@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
 import { TelegramLinkService, TelegramUpdate } from './telegram-link.service';
+import { describeError } from '../describe-error';
 
 const POLL_TIMEOUT_S = 25;
 const POLL_RETRY_MS = 5000;
@@ -65,11 +66,14 @@ export class TelegramUpdatesService
           await this.linkService
             .handleUpdate(update)
             .catch((err) =>
-              console.error('[TELEGRAM] falha ao processar update:', err),
+              console.error(
+                '[TELEGRAM] falha ao processar update:',
+                describeError(err),
+              ),
             );
         }
       } catch (err) {
-        console.error('[TELEGRAM] getUpdates falhou:', err);
+        console.error('[TELEGRAM] getUpdates falhou:', describeError(err));
         await new Promise((resolve) => setTimeout(resolve, POLL_RETRY_MS));
       }
     }
