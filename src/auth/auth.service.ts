@@ -8,6 +8,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Prisma } from '@prisma/client';
 import { randomBytes, randomInt, createHash } from 'crypto';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -169,43 +170,50 @@ export class AuthService {
 
     const codeHash = createHash('sha256').update(dto.code).digest('hex');
     if (codeHash !== record.codeHash) {
-      const updated = await this.prisma.twoFactorCode.update({
-        where: { id: record.id },
+      // Conditional increment: parallel guesses cannot push attempts past the
+      // limit, and consumption below refuses a code at the limit.
+      await this.prisma.twoFactorCode.updateMany({
+        where: {
+          id: record.id,
+          usedAt: null,
+          attempts: { lt: MAX_TWO_FACTOR_ATTEMPTS },
+        },
         data: { attempts: { increment: 1 } },
       });
-      if (updated.attempts >= MAX_TWO_FACTOR_ATTEMPTS) {
-        // Lock the code out permanently once the limit is reached, so a
-        // subsequent correct-looking guess (or a retry racing this one)
-        // cannot slip through the up-front check on a later request.
-        await this.prisma.twoFactorCode.update({
-          where: { id: record.id },
-          data: { usedAt: new Date() },
-        });
-      }
       await this.registerTwoFactorFailure(record.userId, record.id);
       throw new BadRequestException(TWO_FACTOR_GENERIC_ERROR);
     }
 
-    await this.prisma.twoFactorCode.update({
-      where: { id: record.id },
-      data: { usedAt: new Date() },
-    });
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: record.userId },
-    });
-    if (!user) {
-      throw new BadRequestException(TWO_FACTOR_GENERIC_ERROR);
-    }
-
-    if (user.twoFactorFailedAttempts > 0) {
-      await this.prisma.user.update({
-        where: { id: user.id },
+    const user = await this.prisma.$transaction(async (tx) => {
+      await this.consumeTwoFactorCode(tx, record.id);
+      return tx.user.update({
+        where: { id: record.userId },
         data: { twoFactorFailedAttempts: 0 },
       });
-    }
+    });
 
     return { access_token: this.signAccessToken(user) };
+  }
+
+  // Marks the code used only if it is still live; a request that loses the
+  // race to another one gets the same answer as an invalid code.
+  private async consumeTwoFactorCode(
+    tx: Prisma.TransactionClient,
+    id: string,
+  ): Promise<void> {
+    const now = new Date();
+    const { count } = await tx.twoFactorCode.updateMany({
+      where: {
+        id,
+        usedAt: null,
+        expiresAt: { gt: now },
+        attempts: { lt: MAX_TWO_FACTOR_ATTEMPTS },
+      },
+      data: { usedAt: now },
+    });
+    if (count !== 1) {
+      throw new BadRequestException(TWO_FACTOR_GENERIC_ERROR);
+    }
   }
 
   private async registerTwoFactorFailure(
@@ -262,32 +270,27 @@ export class AuthService {
 
     const codeHash = createHash('sha256').update(dto.code).digest('hex');
     if (codeHash !== record.codeHash) {
-      const updated = await this.prisma.twoFactorCode.update({
-        where: { id: record.id },
+      // Conditional increment: parallel guesses cannot push attempts past the
+      // limit, and consumption below refuses a code at the limit.
+      await this.prisma.twoFactorCode.updateMany({
+        where: {
+          id: record.id,
+          usedAt: null,
+          attempts: { lt: MAX_TWO_FACTOR_ATTEMPTS },
+        },
         data: { attempts: { increment: 1 } },
       });
-      if (updated.attempts >= MAX_TWO_FACTOR_ATTEMPTS) {
-        // Lock the code out permanently once the limit is reached, so a
-        // subsequent correct-looking guess (or a retry racing this one)
-        // cannot slip through the up-front check on a later request.
-        await this.prisma.twoFactorCode.update({
-          where: { id: record.id },
-          data: { usedAt: new Date() },
-        });
-      }
       throw new BadRequestException(TWO_FACTOR_GENERIC_ERROR);
     }
 
-    await this.prisma.twoFactorCode.update({
-      where: { id: record.id },
-      data: { usedAt: new Date() },
-    });
-
     // Changing 2FA signs out every other session; the returned token keeps
     // this one logged in.
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: { twoFactorEnabled: true, tokenVersion: { increment: 1 } },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await this.consumeTwoFactorCode(tx, record.id);
+      return tx.user.update({
+        where: { id: userId },
+        data: { twoFactorEnabled: true, tokenVersion: { increment: 1 } },
+      });
     });
 
     return {
@@ -411,8 +414,17 @@ export class AuthService {
 
     // A password reset also drops the Telegram channel and pending 2FA
     // challenges: nothing issued under the old credentials may outlive them.
-    await this.prisma.$transaction([
-      this.prisma.user.update({
+    await this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const { count } = await tx.passwordResetToken.updateMany({
+        where: { id: resetToken.id, usedAt: null, expiresAt: { gt: now } },
+        data: { usedAt: now },
+      });
+      if (count !== 1) {
+        throw new BadRequestException('Link inválido ou expirado.');
+      }
+
+      await tx.user.update({
         where: { id: resetToken.userId },
         data: {
           passwordHash,
@@ -422,21 +434,17 @@ export class AuthService {
           telegramChatId: null,
           telegramLinkedAt: null,
         },
-      }),
-      this.prisma.telegramLinkToken.deleteMany({
+      });
+      await tx.telegramLinkToken.deleteMany({
         where: { userId: resetToken.userId },
-      }),
-      this.prisma.twoFactorCode.deleteMany({
+      });
+      await tx.twoFactorCode.deleteMany({
         where: { userId: resetToken.userId },
-      }),
-      this.prisma.passwordResetToken.update({
-        where: { id: resetToken.id },
-        data: { usedAt: new Date() },
-      }),
-      this.prisma.passwordResetToken.deleteMany({
+      });
+      await tx.passwordResetToken.deleteMany({
         where: { userId: resetToken.userId, id: { not: resetToken.id } },
-      }),
-    ]);
+      });
+    });
 
     return { message: 'Senha redefinida com sucesso.' };
   }

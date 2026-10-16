@@ -14,6 +14,9 @@ export interface TelegramUpdate {
   };
 }
 
+const LINK_EXPIRED_MESSAGE =
+  'Este link expirou ou já foi usado. Gere um novo no seu perfil da TagReativa.';
+
 const UNLINKED = { telegramChatId: null, telegramLinkedAt: null };
 
 @Injectable()
@@ -85,10 +88,7 @@ export class TelegramLinkService {
     });
 
     if (!record || record.usedAt || record.expiresAt < new Date()) {
-      await this.telegram.sendMessage(
-        chatId,
-        'Este link expirou ou já foi usado. Gere um novo no seu perfil da TagReativa.',
-      );
+      await this.telegram.sendMessage(chatId, LINK_EXPIRED_MESSAGE);
       return;
     }
 
@@ -108,17 +108,24 @@ export class TelegramLinkService {
     }
 
     const now = new Date();
-    const [user] = await this.prisma.$transaction([
-      this.prisma.user.update({
+    const user = await this.prisma.$transaction(async (tx) => {
+      // Only one /start may consume the token, even when two race.
+      const { count } = await tx.telegramLinkToken.updateMany({
+        where: { id: record.id, usedAt: null, expiresAt: { gt: now } },
+        data: { usedAt: now },
+      });
+      if (count !== 1) return null;
+      return tx.user.update({
         where: { id: record.userId },
         data: { telegramChatId: chatId, telegramLinkedAt: now },
         select: { name: true },
-      }),
-      this.prisma.telegramLinkToken.update({
-        where: { id: record.id },
-        data: { usedAt: now },
-      }),
-    ]);
+      });
+    });
+
+    if (!user) {
+      await this.telegram.sendMessage(chatId, LINK_EXPIRED_MESSAGE);
+      return;
+    }
 
     await this.telegram.sendMessage(
       chatId,

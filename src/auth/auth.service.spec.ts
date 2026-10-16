@@ -31,6 +31,7 @@ describe('AuthService', () => {
       create: jest.Mock;
       findUnique: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
     };
     twoFactorCode: {
       deleteMany: jest.Mock;
@@ -38,6 +39,7 @@ describe('AuthService', () => {
       findUnique: jest.Mock;
       findFirst: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
     };
     user: { update: jest.Mock; findUnique: jest.Mock };
     $transaction: jest.Mock;
@@ -74,6 +76,7 @@ describe('AuthService', () => {
         create: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       twoFactorCode: {
         deleteMany: jest.fn(),
@@ -81,9 +84,14 @@ describe('AuthService', () => {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       user: { update: jest.fn(), findUnique: jest.fn() },
-      $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+      $transaction: jest.fn((arg: unknown) =>
+        typeof arg === 'function'
+          ? (arg as (tx: unknown) => unknown)(prisma)
+          : Promise.all(arg as Promise<unknown>[]),
+      ),
     };
     emailService = { send: jest.fn() };
     jwtService = { sign: jest.fn().mockReturnValue('signed-jwt') };
@@ -228,9 +236,13 @@ describe('AuthService', () => {
       expect(prisma.telegramLinkToken.deleteMany).toHaveBeenCalledWith({
         where: { userId: 'user-1' },
       });
-      expect(prisma.passwordResetToken.update).toHaveBeenCalledWith({
-        where: { id: 'reset-1' },
-        data: { usedAt: expect.any(Date) },
+      expect(prisma.passwordResetToken.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'reset-1',
+          usedAt: null,
+          expiresAt: { gt: expect.any(Date) as Date },
+        },
+        data: { usedAt: expect.any(Date) as Date },
       });
       expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({
         where: { userId: 'user-1', id: { not: 'reset-1' } },
@@ -240,6 +252,16 @@ describe('AuthService', () => {
       });
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(result).toEqual({ message: 'Senha redefinida com sucesso.' });
+    });
+
+    it('throws a generic error when a concurrent reset consumed the token first', async () => {
+      prisma.passwordResetToken.findUnique.mockResolvedValue(validToken);
+      prisma.passwordResetToken.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.resetPassword({ token: 'raced', newPassword: 'newpass123' }),
+      ).rejects.toThrow('Link inválido ou expirado.');
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
     it('throws a generic error for an unknown token', async () => {
@@ -496,8 +518,7 @@ describe('AuthService', () => {
         ...pendingCode,
         codeHash,
       });
-      prisma.twoFactorCode.update.mockResolvedValue({});
-      prisma.user.findUnique.mockResolvedValue(twoFactorUser);
+      prisma.user.update.mockResolvedValue(twoFactorUser);
 
       const result = await service.verifyTwoFactorLogin({
         loginToken: 'raw-login-token',
@@ -510,10 +531,30 @@ describe('AuthService', () => {
         email: 'twofactor@example.com',
         ver: 3,
       });
-      expect(prisma.twoFactorCode.update).toHaveBeenCalledWith({
-        where: { id: 'tfc-1' },
-        data: { usedAt: expect.any(Date) },
+      expect(prisma.twoFactorCode.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'tfc-1',
+          usedAt: null,
+          expiresAt: { gt: expect.any(Date) as Date },
+          attempts: { lt: 5 },
+        },
+        data: { usedAt: expect.any(Date) as Date },
       });
+    });
+
+    it('rejects a right code when a concurrent request consumed it first', async () => {
+      const codeHash = createHash('sha256').update('123456').digest('hex');
+      prisma.twoFactorCode.findUnique.mockResolvedValue({
+        ...pendingCode,
+        codeHash,
+      });
+      prisma.twoFactorCode.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.verifyTwoFactorLogin({ loginToken: 'raw', code: '123456' }),
+      ).rejects.toThrow('Código inválido ou expirado.');
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(jwtService.sign).not.toHaveBeenCalled();
     });
 
     it('throws a generic error and increments attempts for a wrong code', async () => {
@@ -528,34 +569,9 @@ describe('AuthService', () => {
         service.verifyTwoFactorLogin({ loginToken: 'raw', code: '111111' }),
       ).rejects.toThrow('Código inválido ou expirado.');
 
-      expect(prisma.twoFactorCode.update).toHaveBeenCalledWith({
-        where: { id: 'tfc-1' },
+      expect(prisma.twoFactorCode.updateMany).toHaveBeenCalledWith({
+        where: { id: 'tfc-1', usedAt: null, attempts: { lt: 5 } },
         data: { attempts: { increment: 1 } },
-      });
-    });
-
-    it('locks the code out immediately once a wrong guess reaches the attempt limit', async () => {
-      const codeHash = createHash('sha256').update('999999').digest('hex');
-      prisma.twoFactorCode.findUnique.mockResolvedValue({
-        ...pendingCode,
-        codeHash,
-        attempts: 4,
-      });
-      prisma.twoFactorCode.update
-        .mockResolvedValueOnce({ attempts: 5 })
-        .mockResolvedValueOnce({});
-
-      await expect(
-        service.verifyTwoFactorLogin({ loginToken: 'raw', code: '111111' }),
-      ).rejects.toThrow('Código inválido ou expirado.');
-
-      expect(prisma.twoFactorCode.update).toHaveBeenNthCalledWith(1, {
-        where: { id: 'tfc-1' },
-        data: { attempts: { increment: 1 } },
-      });
-      expect(prisma.twoFactorCode.update).toHaveBeenNthCalledWith(2, {
-        where: { id: 'tfc-1' },
-        data: { usedAt: expect.any(Date) },
       });
     });
 
@@ -627,7 +643,6 @@ describe('AuthService', () => {
         ...pendingEnableCode,
         codeHash,
       });
-      prisma.twoFactorCode.update.mockResolvedValue({});
       prisma.user.update.mockResolvedValue({
         ...existingUser,
         tokenVersion: 4,
@@ -650,10 +665,33 @@ describe('AuthService', () => {
         where: { userId: 'user-1', loginTokenHash: null, usedAt: null },
         orderBy: { createdAt: 'desc' },
       });
+      expect(prisma.twoFactorCode.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'tfc-enable-1',
+          usedAt: null,
+          expiresAt: { gt: expect.any(Date) as Date },
+          attempts: { lt: 5 },
+        },
+        data: { usedAt: expect.any(Date) as Date },
+      });
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'user-1' },
         data: { twoFactorEnabled: true, tokenVersion: { increment: 1 } },
       });
+    });
+
+    it('leaves the flag unchanged when a concurrent request consumed the code first', async () => {
+      const codeHash = createHash('sha256').update('654321').digest('hex');
+      prisma.twoFactorCode.findFirst.mockResolvedValue({
+        ...pendingEnableCode,
+        codeHash,
+      });
+      prisma.twoFactorCode.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.confirmTwoFactor('user-1', { code: '654321' }),
+      ).rejects.toThrow('Código inválido ou expirado.');
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
     it('throws a generic error and leaves the flag unchanged for a wrong code', async () => {
