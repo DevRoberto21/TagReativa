@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { ForbiddenException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 describe('UsersService', () => {
@@ -110,6 +111,60 @@ describe('UsersService', () => {
         service.deleteMe('user-1', { password: 'errada123' }),
       ).rejects.toBeInstanceOf(ForbiddenException);
       expect(prisma.user.delete).not.toHaveBeenCalled();
+    });
+  });
+  describe('contact conflicts', () => {
+    const uniqueViolation = () =>
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: 'test',
+      });
+
+    const newUser = {
+      name: 'Ana',
+      email: 'ana@example.com',
+      password: 'senha1234',
+      whatsapp: '5511988887777',
+    };
+
+    it('answers 409 with one message when the e-mail is taken', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-9' });
+
+      await expect(service.create(newUser)).rejects.toThrow(
+        new ConflictException('E-mail ou WhatsApp já cadastrado.'),
+      );
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('answers the same 409 when the WhatsApp number is taken at registration', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockRejectedValue(uniqueViolation());
+
+      await expect(service.create(newUser)).rejects.toThrow(
+        new ConflictException('E-mail ou WhatsApp já cadastrado.'),
+      );
+    });
+
+    it('answers 409 when a profile update uses a taken WhatsApp number', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        passwordHash: await bcrypt.hash('senha1234', 10),
+      });
+      prisma.user.update.mockRejectedValue(uniqueViolation());
+
+      await expect(
+        service.updateMe('user-1', {
+          whatsapp: '5511988887777',
+          password: 'senha1234',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('rethrows errors that are not unique violations', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockRejectedValue(new Error('db down'));
+
+      await expect(service.create(newUser)).rejects.toThrow('db down');
     });
   });
 });

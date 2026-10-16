@@ -9,6 +9,17 @@ import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { DeleteAccountDto } from './dto/delete-account.dto';
+import { Prisma } from '@prisma/client';
+
+// One message for both identifiers, so the response does not say which one
+// is already registered.
+const CONTACT_CONFLICT_MESSAGE = 'E-mail ou WhatsApp já cadastrado.';
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002'
+  );
+}
 
 @Injectable()
 export class UsersService {
@@ -18,26 +29,33 @@ export class UsersService {
     const exists = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
-    if (exists) throw new ConflictException('E-mail já cadastrado.');
+    if (exists) throw new ConflictException(CONTACT_CONFLICT_MESSAGE);
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
-    return this.prisma.user.create({
-      data: {
-        name: dto.name,
-        email: dto.email,
-        passwordHash,
-        whatsapp: dto.whatsapp,
-        age: dto.age,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        whatsapp: true,
-        age: true,
-      },
-    });
+    try {
+      return await this.prisma.user.create({
+        data: {
+          name: dto.name,
+          email: dto.email,
+          passwordHash,
+          whatsapp: dto.whatsapp,
+          age: dto.age,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          whatsapp: true,
+          age: true,
+        },
+      });
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException(CONTACT_CONFLICT_MESSAGE);
+      }
+      throw err;
+    }
   }
 
   async findByEmail(email: string) {
@@ -69,21 +87,28 @@ export class UsersService {
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new ForbiddenException('Senha incorreta.');
 
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        name: dto.name,
-        whatsapp: dto.whatsapp,
-        age: dto.age,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        whatsapp: true,
-        age: true,
-      },
-    });
+    try {
+      return await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          name: dto.name,
+          whatsapp: dto.whatsapp,
+          age: dto.age,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          whatsapp: true,
+          age: true,
+        },
+      });
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException('WhatsApp já cadastrado.');
+      }
+      throw err;
+    }
   }
   async deleteMe(userId: string, dto: DeleteAccountDto): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
