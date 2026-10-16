@@ -82,6 +82,19 @@ export default function TelegramSetup() {
         }
     }
 
+    async function handleUnlink() {
+        setLoading(true);
+        setError('');
+        try {
+            await api.delete('/telegram/link');
+            setLinked(false);
+        } catch {
+            setError('Não foi possível desvincular. Tente novamente.');
+        } finally {
+            setLoading(false);
+        }
+    }
+
     function handleLogout() {
         localStorage.removeItem('access_token');
         navigate('/login');
@@ -110,6 +123,9 @@ export default function TelegramSetup() {
                         <p className={styles.text}>
                             Seu Telegram está vinculado. Quando a tag de um pet marcado como perdido for escaneada, você recebe uma mensagem com a localização.
                         </p>
+                        <Button block variant="secondary" onClick={handleUnlink} disabled={loading}>
+                            {loading ? 'Desvinculando...' : 'Desvincular Telegram'}
+                        </Button>
                     </>
                 )}
 

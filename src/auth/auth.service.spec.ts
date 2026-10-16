@@ -24,6 +24,7 @@ describe('AuthService', () => {
   let service: AuthService;
   let usersService: { findByEmail: jest.Mock };
   let prisma: {
+    telegramLinkToken: { deleteMany: jest.Mock };
     passwordResetToken: {
       deleteMany: jest.Mock;
       count: jest.Mock;
@@ -63,6 +64,9 @@ describe('AuthService', () => {
   beforeEach(async () => {
     usersService = { findByEmail: jest.fn() };
     prisma = {
+      telegramLinkToken: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       passwordResetToken: {
         deleteMany: jest.fn(),
         count: jest.fn().mockResolvedValue(0),
@@ -215,7 +219,12 @@ describe('AuthService', () => {
           tokenVersion: { increment: 1 },
           twoFactorFailedAttempts: 0,
           twoFactorLockedUntil: null,
+          telegramChatId: null,
+          telegramLinkedAt: null,
         },
+      });
+      expect(prisma.telegramLinkToken.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
       });
       expect(prisma.passwordResetToken.update).toHaveBeenCalledWith({
         where: { id: 'reset-1' },
@@ -721,7 +730,12 @@ describe('AuthService', () => {
         data: {
           passwordHash: expect.any(String) as string,
           tokenVersion: { increment: 1 },
+          telegramChatId: null,
+          telegramLinkedAt: null,
         },
+      });
+      expect(prisma.telegramLinkToken.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
       });
       const [{ data }] = prisma.user.update.mock.calls[0] as [
         { data: { passwordHash: string } },

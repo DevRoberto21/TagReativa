@@ -23,7 +23,7 @@ describe('TelegramLinkService', () => {
       findUnique: jest.Mock;
       update: jest.Mock;
     };
-    user: { update: jest.Mock; updateMany: jest.Mock };
+    user: { update: jest.Mock; updateMany: jest.Mock; findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
   let telegram: { sendMessage: jest.Mock };
@@ -40,6 +40,7 @@ describe('TelegramLinkService', () => {
       user: {
         update: jest.fn().mockResolvedValue({ name: 'Roberto' }),
         updateMany: jest.fn().mockResolvedValue({}),
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     };
@@ -96,10 +97,11 @@ describe('TelegramLinkService', () => {
       expect(prisma.telegramLinkToken.findUnique).toHaveBeenCalledWith({
         where: { tokenHash: hash('abc') },
       });
-      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      expect(prisma.user.findFirst).toHaveBeenCalledWith({
         where: { telegramChatId: '42', NOT: { id: 'user-1' } },
-        data: { telegramChatId: null, telegramLinkedAt: null },
+        select: { id: true },
       });
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'user-1' },
@@ -113,6 +115,22 @@ describe('TelegramLinkService', () => {
       expect(telegram.sendMessage).toHaveBeenCalledWith(
         '42',
         expect.stringContaining('ativados'),
+      );
+    });
+
+    it('refuses to move a chat that is linked to another account', async () => {
+      prisma.telegramLinkToken.findUnique.mockResolvedValue(validRecord);
+      prisma.user.findFirst.mockResolvedValue({ id: 'user-9' });
+
+      await service.handleUpdate(startUpdate('/start abc'));
+
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
+      expect(prisma.telegramLinkToken.update).not.toHaveBeenCalled();
+      expect(telegram.sendMessage).toHaveBeenCalledTimes(1);
+      expect(telegram.sendMessage).toHaveBeenCalledWith(
+        '42',
+        expect.stringContaining('/stop'),
       );
     });
 
@@ -176,6 +194,9 @@ describe('TelegramLinkService', () => {
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'user-1' },
         data: { telegramChatId: null, telegramLinkedAt: null },
+      });
+      expect(prisma.telegramLinkToken.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
       });
     });
   });

@@ -401,6 +401,8 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 10);
 
+    // A password reset also drops the Telegram channel: a chat bound from a
+    // stolen session must not outlive the credentials.
     await this.prisma.user.update({
       where: { id: resetToken.userId },
       data: {
@@ -408,7 +410,12 @@ export class AuthService {
         tokenVersion: { increment: 1 },
         twoFactorFailedAttempts: 0,
         twoFactorLockedUntil: null,
+        telegramChatId: null,
+        telegramLinkedAt: null,
       },
+    });
+    await this.prisma.telegramLinkToken.deleteMany({
+      where: { userId: resetToken.userId },
     });
 
     await this.prisma.passwordResetToken.update({
@@ -440,14 +447,20 @@ export class AuthService {
     // below keeps the one that made the change logged in.
     const updated = await this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash, tokenVersion: { increment: 1 } },
+      data: {
+        passwordHash,
+        tokenVersion: { increment: 1 },
+        telegramChatId: null,
+        telegramLinkedAt: null,
+      },
     });
+    await this.prisma.telegramLinkToken.deleteMany({ where: { userId } });
 
     void this.emailService
       .send(
         user.email,
         'Senha alterada - TagReativa',
-        'A senha da sua conta TagReativa foi alterada. Se você não fez essa alteração, redefina sua senha imediatamente pela opção "Esqueci minha senha".',
+        'A senha da sua conta TagReativa foi alterada. Por segurança, os alertas no Telegram foram desativados: reative-os no seu perfil. Se você não fez essa alteração, redefina sua senha imediatamente pela opção "Esqueci minha senha".',
       )
       .then((delivered) => {
         if (!delivered) {
