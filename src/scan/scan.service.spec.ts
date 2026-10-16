@@ -282,13 +282,33 @@ describe('ScanService', () => {
     expect(prisma.notification.create).toHaveBeenCalledTimes(1);
   });
 
+  it('bounds the IP geolocation lookup with a timeout', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      json: () => Promise.resolve({ status: 'success', lat: 1, lon: 2 }),
+    } as Response);
+    prisma.pet.findUnique.mockResolvedValue({
+      ...basePet,
+      status: PetStatus.SAFE,
+    });
+
+    await service.processScan({ ...scanDto, ipAddress: '203.0.113.9' });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://ip-api.com/json/203.0.113.9',
+      { signal: expect.any(AbortSignal) as AbortSignal },
+    );
+    fetchMock.mockRestore();
+  });
+
   describe('alert rate limit', () => {
     const deviceId = '8f14e45f-ceea-467a-9575-0c5b0b0b7c11';
 
-    // count() is called for the pet-wide total first, then for the device.
-    function mockAlertCounts(total: number, device: number) {
+    // count() is called for the pet-wide total first, then for the source
+    // address, then for the device.
+    function mockAlertCounts(total: number, device: number, source = 0) {
       prisma.scanLog.count
         .mockResolvedValueOnce(total)
+        .mockResolvedValueOnce(source)
         .mockResolvedValueOnce(device);
     }
 
@@ -325,10 +345,15 @@ describe('ScanService', () => {
       await service.processScan({ ...scanDto, deviceId });
 
       type CountArgs = [{ where: { timestamp: { gte: Date } } }];
-      const [totalQuery, deviceQuery] = (
+      const [totalQuery, sourceQuery, deviceQuery] = (
         prisma.scanLog.count.mock.calls as CountArgs[]
       ).map(([args]) => args.where);
       expect(totalQuery).toMatchObject({ petId: 'pet-1', alertSent: true });
+      expect(sourceQuery).toMatchObject({
+        petId: 'pet-1',
+        alertSent: true,
+        ipAddress: '127.0.0.1',
+      });
       expect(deviceQuery).toMatchObject({
         petId: 'pet-1',
         alertSent: true,
@@ -371,14 +396,33 @@ describe('ScanService', () => {
       expect(result.ownerNotified).toBe(false);
     });
 
-    it('applies only the pet-wide cap when no deviceId is sent', async () => {
-      prisma.scanLog.count.mockResolvedValueOnce(5);
+    it('applies the pet-wide and per-address caps when no deviceId is sent', async () => {
+      prisma.scanLog.count.mockResolvedValueOnce(5).mockResolvedValueOnce(0);
 
       const result = await service.processScan(scanDto);
 
-      expect(prisma.scanLog.count).toHaveBeenCalledTimes(1);
+      expect(prisma.scanLog.count).toHaveBeenCalledTimes(2);
       expect(email.send).toHaveBeenCalledTimes(1);
       expect(result.ownerNotified).toBe(true);
+    });
+
+    it('skips the alert when this address already triggered 3 alerts, even without deviceId', async () => {
+      prisma.scanLog.count.mockResolvedValueOnce(3).mockResolvedValueOnce(3);
+
+      const result = await service.processScan(scanDto);
+
+      expect(email.send).not.toHaveBeenCalled();
+      expect(telegram.sendMessage).not.toHaveBeenCalled();
+      expect(result.ownerNotified).toBe(false);
+    });
+
+    it('does not let a fresh deviceId bypass the per-address cap', async () => {
+      mockAlertCounts(3, 0, 3);
+
+      const result = await service.processScan({ ...scanDto, deviceId });
+
+      expect(email.send).not.toHaveBeenCalled();
+      expect(result.ownerNotified).toBe(false);
     });
 
     it('keeps the owner contact in the response even when the alert is skipped', async () => {

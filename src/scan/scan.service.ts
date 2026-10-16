@@ -22,7 +22,10 @@ export interface ScanDto {
 // always returned; only the e-mail/Telegram dispatch is skipped.
 const ALERT_WINDOW_MS = 30 * 60 * 1000;
 const MAX_ALERTS_PER_DEVICE = 3;
+// deviceId is chosen by the client, so the server-derived address is capped too.
+const MAX_ALERTS_PER_SOURCE = 3;
 const MAX_ALERTS_PER_PET = 10;
+const IP_LOOKUP_TIMEOUT_MS = 3000;
 
 interface IpApiResponse {
   status: string;
@@ -51,7 +54,9 @@ export class ScanService {
     if (privateIp.test(ip)) return { latitude: null, longitude: null };
 
     try {
-      const res = await fetch(`http://ip-api.com/json/${ip}`);
+      const res = await fetch(`http://ip-api.com/json/${ip}`, {
+        signal: AbortSignal.timeout(IP_LOOKUP_TIMEOUT_MS),
+      });
       const data = (await res.json()) as IpApiResponse;
 
       if (data.status !== 'success') return { latitude: null, longitude: null };
@@ -132,6 +137,7 @@ export class ScanService {
 
   private async canSendAlert(
     petId: string,
+    ipAddress: string,
     deviceId?: string,
   ): Promise<boolean> {
     const since = new Date(Date.now() - ALERT_WINDOW_MS);
@@ -139,6 +145,11 @@ export class ScanService {
 
     const petAlerts = await this.prisma.scanLog.count({ where });
     if (petAlerts >= MAX_ALERTS_PER_PET) return false;
+
+    const sourceAlerts = await this.prisma.scanLog.count({
+      where: { ...where, ipAddress },
+    });
+    if (sourceAlerts >= MAX_ALERTS_PER_SOURCE) return false;
 
     if (!deviceId) return true;
 
@@ -171,7 +182,8 @@ export class ScanService {
     }
 
     const alertSent =
-      pet.status === 'LOST' && (await this.canSendAlert(pet.id, dto.deviceId));
+      pet.status === 'LOST' &&
+      (await this.canSendAlert(pet.id, dto.ipAddress, dto.deviceId));
 
     const scanLog = await this.prisma.scanLog.create({
       data: {

@@ -56,6 +56,30 @@ describe('TelegramService', () => {
     );
   });
 
+  it('bounds message delivery with a timeout', async () => {
+    fetchMock.mockResolvedValueOnce(telegramResponse(200, { ok: true }));
+
+    await service.sendMessage('42', 'Olá');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.telegram.org/bottest-token/sendMessage',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal) as AbortSignal,
+      }),
+    );
+  });
+
+  it('leaves raw calls such as long polling without a client timeout', async () => {
+    fetchMock.mockResolvedValueOnce(
+      telegramResponse(200, { ok: true, result: [] }),
+    );
+
+    await service.call('getUpdates', { offset: 0 });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.signal).toBeUndefined();
+  });
+
   it('sends a location pin', async () => {
     fetchMock.mockResolvedValueOnce(telegramResponse(200, { ok: true }));
 

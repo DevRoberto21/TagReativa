@@ -11,6 +11,8 @@ import * as QRCode from 'qrcode';
 import { buildQrCodeUrl, generateShortCode } from './short-code';
 
 const MAX_SHORT_CODE_ATTEMPTS = 3;
+// Scans are written by anonymous callers, so the owner read is bounded.
+const MAX_SCANS_RETURNED = 200;
 
 @Injectable()
 export class PetsService {
@@ -114,6 +116,7 @@ export class PetsService {
     return this.prisma.scanLog.findMany({
       where: { petId },
       orderBy: { timestamp: 'desc' },
+      take: MAX_SCANS_RETURNED,
     });
   }
 }
