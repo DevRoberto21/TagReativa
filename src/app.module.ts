@@ -8,6 +8,7 @@ import { PetsModule } from './pets/pets.module';
 import { ScanModule } from './scan/scan.module';
 import { HealthController } from './health.controller';
 import { IpThrottlerGuard } from './ip-throttler.guard';
+import { TokenCleanupService } from './token-cleanup.service';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { IpThrottlerGuard } from './ip-throttler.guard';
   ],
   controllers: [HealthController],
   providers: [
+    TokenCleanupService,
     {
       provide: APP_GUARD,
       useClass: IpThrottlerGuard,
