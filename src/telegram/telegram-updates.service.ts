@@ -3,7 +3,7 @@ import {
   OnApplicationBootstrap,
   OnApplicationShutdown,
 } from '@nestjs/common';
-import { TelegramService } from './telegram.service';
+import { TelegramApiError, TelegramService } from './telegram.service';
 import { TelegramLinkService, TelegramUpdate } from './telegram-link.service';
 import { describeError } from '../describe-error';
 
@@ -42,8 +42,16 @@ export class TelegramUpdatesService
       return;
     }
 
-    // getUpdates is refused while a webhook is registered.
-    await this.telegram.call('deleteWebhook');
+    // A registered webhook belongs to another instance (usually production
+    // sharing this bot). Deleting it would steal that instance's updates, and
+    // their link tokens do not exist in this database.
+    const info = await this.telegram.call<{ url: string }>('getWebhookInfo');
+    if (info.url) {
+      console.warn(
+        '[TELEGRAM] webhook ativo em outra instância; long polling desativado. Use outro bot (TELEGRAM_BOT_TOKEN) em desenvolvimento.',
+      );
+      return;
+    }
     this.polling = true;
     this.pollingDone = this.poll();
     console.log('[TELEGRAM] long polling iniciado.');
@@ -74,6 +82,12 @@ export class TelegramUpdatesService
         }
       } catch (err) {
         console.error('[TELEGRAM] getUpdates falhou:', describeError(err));
+        // 409: a webhook was set or another instance polls this bot.
+        if (err instanceof TelegramApiError && err.status === 409) {
+          console.warn('[TELEGRAM] long polling encerrado.');
+          this.polling = false;
+          return;
+        }
         await new Promise((resolve) => setTimeout(resolve, POLL_RETRY_MS));
       }
     }

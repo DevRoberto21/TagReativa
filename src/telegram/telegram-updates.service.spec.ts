@@ -1,5 +1,5 @@
 import { TelegramUpdatesService } from './telegram-updates.service';
-import { TelegramService } from './telegram.service';
+import { TelegramApiError, TelegramService } from './telegram.service';
 import { TelegramLinkService } from './telegram-link.service';
 
 describe('TelegramUpdatesService', () => {
@@ -54,7 +54,7 @@ describe('TelegramUpdatesService', () => {
     };
     telegram.call.mockImplementation(
       (method: string, payload: { offset?: number }) => {
-        if (method === 'deleteWebhook') return Promise.resolve(true);
+        if (method === 'getWebhookInfo') return Promise.resolve({ url: '' });
         if (payload.offset === 0) return Promise.resolve([update]);
         service.onApplicationShutdown();
         return Promise.resolve([]);
@@ -64,12 +64,40 @@ describe('TelegramUpdatesService', () => {
     await service.onApplicationBootstrap();
     await service.pollingDone;
 
-    expect(telegram.call).toHaveBeenNthCalledWith(1, 'deleteWebhook');
+    expect(telegram.call).toHaveBeenNthCalledWith(1, 'getWebhookInfo');
     expect(linkService.handleUpdate).toHaveBeenCalledWith(update);
     expect(telegram.call).toHaveBeenLastCalledWith('getUpdates', {
       offset: 8,
       timeout: 25,
       allowed_updates: ['message'],
     });
+  });
+
+  it('does not poll or delete a webhook registered by another instance', async () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    telegram.call.mockResolvedValue({
+      url: 'https://api.example.com/telegram/webhook',
+    });
+
+    await service.onApplicationBootstrap();
+    await service.pollingDone;
+
+    expect(telegram.call).toHaveBeenCalledTimes(1);
+    expect(telegram.call).toHaveBeenCalledWith('getWebhookInfo');
+  });
+
+  it('stops polling on 409 instead of retrying', async () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    telegram.call.mockImplementation((method: string) =>
+      method === 'getWebhookInfo'
+        ? Promise.resolve({ url: '' })
+        : Promise.reject(new TelegramApiError(409, 'Conflict')),
+    );
+
+    await service.onApplicationBootstrap();
+    await service.pollingDone;
+
+    expect(telegram.call).toHaveBeenCalledTimes(2);
   });
 });
