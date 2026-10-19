@@ -50,7 +50,7 @@ export default function Register() {
       // New accounts never have 2FA on, so login returns the token directly.
       const { data } = await api.post('/auth/login', { email: form.email, password: form.password });
       localStorage.setItem('access_token', data.access_token);
-      navigate('/configurar-notificacao', { state: { onboarding: true } });
+      navigate('/alertas-email', { replace: true });
     } catch {
       navigate('/login');
     }
@@ -80,7 +80,7 @@ export default function Register() {
         <Field label="Confirmar Senha" name="confirm" type="password" autoComplete="new-password" value={form.confirm} onChange={handleChange} required minLength={8} />
 
         <Notice>
-          Os alertas de resgate chegam pelo Telegram, que você ativa no próximo passo. Seu número fica oculto e só aparece para quem escanear a tag quando o pet estiver com status "Perdido".
+          Os alertas de resgate chegam no seu e-mail. Se quiser, ative também o Telegram depois. Seu número fica oculto e só aparece para quem escanear a tag quando o pet estiver com status "Perdido".
         </Notice>
 
         {error && <Notice tone="error">{error}</Notice>}

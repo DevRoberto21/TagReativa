@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import api from '../services/api';
 import Page from '../components/ui/Page';
@@ -24,11 +24,6 @@ export default function TelegramSetup() {
     const [error, setError] = useState('');
     const pollRef = useRef(null);
     const navigate = useNavigate();
-    const location = useLocation();
-    // onboarding: right after sign-up, continue to the email step.
-    // required: redirected by the gate from another page, go back to the app.
-    const onboarding = location.state?.onboarding === true;
-    const required = location.state?.required === true;
 
     useEffect(() => {
         api.get('/users/me')
@@ -53,8 +48,6 @@ export default function TelegramSetup() {
                     clearInterval(pollRef.current);
                     setWaiting(false);
                     setLinked(true);
-                    if (onboarding) navigate('/alertas-email', { replace: true });
-                    else if (required) navigate('/dashboard', { replace: true });
                 }
             } catch {
                 // Transient failure; next tick retries.
@@ -97,25 +90,18 @@ export default function TelegramSetup() {
         }
     }
 
-    async function handleLogout() {
-        // A failed server logout must not keep the user signed in locally.
-        await api.post('/auth/logout').catch(() => {});
-        localStorage.removeItem('access_token');
-        navigate('/login');
-    }
-
     return (
         <Page>
             <PageHeader
                 title="Alertas no Telegram"
-                backLabel={linked ? 'Voltar' : 'Sair'}
-                onBack={linked ? () => navigate('/perfil') : handleLogout}
+                backLabel="Voltar"
+                onBack={() => navigate('/perfil')}
             />
 
             {linked === false && (
                 <motion.div variants={rise}>
                     <Notice>
-                        {onboarding ? 'Conta criada! ' : ''}Para usar a TagReativa, ative os alertas no Telegram. É por lá que você fica sabendo na hora, com a localização no mapa, quando a tag do seu pet perdido for escaneada.
+                        Opcional: os alertas já chegam no seu e-mail. Ative o Telegram para receber também uma mensagem na hora, com a localização no mapa, quando a tag do seu pet perdido for escaneada.
                     </Notice>
                 </motion.div>
             )}

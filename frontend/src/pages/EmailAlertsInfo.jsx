@@ -8,8 +8,8 @@ import Button from '../components/ui/Button';
 import Icon from '../components/ui/Icon';
 import styles from './Steps.module.css';
 
-// Onboarding step shown after the Telegram link. Email alerts need no setup,
-// so this only tells the owner where they arrive; skipping changes nothing.
+// Onboarding step shown right after sign-up. Email is the main alert channel
+// and needs no setup; Telegram is offered as an optional extra.
 export default function EmailAlertsInfo() {
     const [email, setEmail] = useState('');
     const navigate = useNavigate();
@@ -27,9 +27,9 @@ export default function EmailAlertsInfo() {
             <PageHeader title="Alertas por e-mail" />
 
             <Panel className={styles.card}>
-                <h2 className={styles.cardTitle}><Icon name="check" size={18} />Telegram ativado</h2>
+                <h2 className={styles.cardTitle}><Icon name="check" size={18} />Conta criada</h2>
                 <p className={styles.text}>
-                    Além do Telegram, cada alerta também é enviado para {email ? <strong>{email}</strong> : 'o seu e-mail'}. Nada a configurar.
+                    Os alertas de resgate são enviados para {email ? <strong>{email}</strong> : 'o seu e-mail'}. Nada a configurar.
                 </p>
                 <ol className={styles.list}>
                     <li>Procure o e-mail da <strong>TagReativa</strong> também na caixa de spam.</li>
@@ -37,7 +37,9 @@ export default function EmailAlertsInfo() {
                 </ol>
 
                 <Button block onClick={finish}>Entendi, continuar</Button>
-                <Button variant="secondary" block onClick={finish}>Pular</Button>
+                <Button variant="secondary" block onClick={() => navigate('/configurar-notificacao')}>
+                    Ativar também no Telegram (opcional)
+                </Button>
             </Panel>
         </Page>
     );

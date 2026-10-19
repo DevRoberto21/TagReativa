@@ -493,11 +493,15 @@ export class AuthService {
       this.prisma.passwordResetToken.deleteMany({ where: { userId } }),
     ]);
 
+    // Telegram is optional: only mention it to owners who had it linked.
+    const telegramNote = user.telegramChatId
+      ? ' Por segurança, os alertas no Telegram foram desativados: reative-os no seu perfil.'
+      : '';
     void this.emailService
       .send(
         user.email,
         'Senha alterada - TagReativa',
-        'A senha da sua conta TagReativa foi alterada. Por segurança, os alertas no Telegram foram desativados: reative-os no seu perfil. Se você não fez essa alteração, redefina sua senha imediatamente pela opção "Esqueci minha senha".',
+        `A senha da sua conta TagReativa foi alterada.${telegramNote} Se você não fez essa alteração, redefina sua senha imediatamente pela opção "Esqueci minha senha".`,
       )
       .then((delivered) => {
         if (!delivered) {

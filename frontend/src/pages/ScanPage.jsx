@@ -51,7 +51,7 @@ function ConsentScreen({ onChoose }) {
         <Icon name="shield" size={32} className={styles.consentIcon} />
         <h1 className={styles.messageTitle}>Antes de continuar</h1>
         <p className={styles.sub}>
-          Você leu a tag de um pet. Se ele estiver perdido, o tutor recebe um alerta por Telegram e e-mail.
+          Você leu a tag de um pet. Se ele estiver perdido, o tutor recebe um alerta por e-mail.
           Nas duas opções abaixo você vê os dados do pet e o contato do tutor.
         </p>
 

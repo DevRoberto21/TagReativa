@@ -862,6 +862,32 @@ describe('AuthService', () => {
       expect(subject).toMatch(/senha alterada/i);
     });
 
+    it.each([
+      ['mentions', '42', true],
+      ['omits', null, false],
+    ])(
+      '%s Telegram in the email depending on whether it was linked',
+      async (_case, telegramChatId, mentioned) => {
+        prisma.user.findUnique.mockResolvedValue({
+          ...existingUser,
+          telegramChatId,
+          passwordHash: await bcrypt.hash('current-pass1', 10),
+        });
+
+        await service.changePassword('user-1', {
+          currentPassword: 'current-pass1',
+          newPassword: 'brand-new2',
+        });
+
+        const [, , message] = emailService.send.mock.calls[0] as [
+          string,
+          string,
+          string,
+        ];
+        expect(message.includes('Telegram')).toBe(mentioned);
+      },
+    );
+
     it('rejects a wrong current password with 403 and keeps the password', async () => {
       await expect(
         service.changePassword('user-1', {
