@@ -17,6 +17,9 @@ export interface TelegramUpdate {
 const LINK_EXPIRED_MESSAGE =
   'Este link expirou ou já foi usado. Gere um novo no seu perfil da TagReativa.';
 
+const ALREADY_LINKED_MESSAGE =
+  '✅ Seu Telegram já está vinculado à sua conta da TagReativa. Os alertas estão ativos.';
+
 const UNLINKED = { telegramChatId: null, telegramLinkedAt: null };
 
 @Injectable()
@@ -102,7 +105,18 @@ export class TelegramLinkService {
     });
 
     if (!record || record.usedAt || record.expiresAt < new Date()) {
-      await this.telegram.sendMessage(chatId, LINK_EXPIRED_MESSAGE);
+      // Opening the same link twice (app plus fallback link, or tapping
+      // Start again) is not an error when this chat already got linked.
+      const alreadyLinked =
+        record?.usedAt &&
+        (await this.prisma.user.findFirst({
+          where: { id: record.userId, telegramChatId: chatId },
+          select: { id: true },
+        }));
+      await this.telegram.sendMessage(
+        chatId,
+        alreadyLinked ? ALREADY_LINKED_MESSAGE : LINK_EXPIRED_MESSAGE,
+      );
       return;
     }
 

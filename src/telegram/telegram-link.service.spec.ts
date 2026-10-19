@@ -175,6 +175,26 @@ describe('TelegramLinkService', () => {
       );
     });
 
+    it('confirms instead of erroring when the same chat reuses its own link', async () => {
+      prisma.telegramLinkToken.findUnique.mockResolvedValue({
+        ...validRecord,
+        usedAt: new Date(),
+      });
+      prisma.user.findFirst.mockResolvedValue({ id: validRecord.userId });
+
+      await service.handleUpdate(startUpdate('/start abc'));
+
+      expect(prisma.user.findFirst).toHaveBeenCalledWith({
+        where: { id: validRecord.userId, telegramChatId: '42' },
+        select: { id: true },
+      });
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(telegram.sendMessage).toHaveBeenCalledWith(
+        '42',
+        expect.stringContaining('já está vinculado'),
+      );
+    });
+
     it('replies with instructions on /start without token', async () => {
       await service.handleUpdate(startUpdate('/start'));
 
