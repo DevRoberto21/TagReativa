@@ -26,16 +26,6 @@ const MAX_ALERTS_PER_DEVICE = 3;
 // deviceId is chosen by the client, so the server-derived address is capped too.
 const MAX_ALERTS_PER_SOURCE = 3;
 const MAX_ALERTS_PER_PET = 10;
-const IP_LOOKUP_TIMEOUT_MS = 3000;
-// Loopback, private, link-local and unique-local ranges, also IPv4-mapped.
-const PRIVATE_IP =
-  /^(?:::ffff:)?(?:127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|169\.254\.)|^(?:::1$|fe80:|f[cd][0-9a-f]{2}:)/i;
-
-interface IpApiResponse {
-  status: string;
-  lat: number;
-  lon: number;
-}
 
 @Injectable()
 export class ScanService {
@@ -49,27 +39,6 @@ export class ScanService {
     const digits = whatsapp.replace(/\D/g, '');
     const number = digits.startsWith('55') ? digits : `55${digits}`;
     return `https://wa.me/${number}`;
-  }
-
-  private async resolveLocationByIp(
-    ip: string,
-  ): Promise<{ latitude: number | null; longitude: number | null }> {
-    if (PRIVATE_IP.test(ip)) return { latitude: null, longitude: null };
-
-    try {
-      const res = await fetch(`http://ip-api.com/json/${ip}`, {
-        signal: AbortSignal.timeout(IP_LOOKUP_TIMEOUT_MS),
-      });
-      const data = (await res.json()) as IpApiResponse;
-
-      if (data.status !== 'success') return { latitude: null, longitude: null };
-
-      return { latitude: data.lat, longitude: data.lon };
-    } catch (err) {
-      console.error('[IP-API] erro:', describeError(err));
-    }
-
-    return { latitude: null, longitude: null };
   }
 
   private async persistNotification(
@@ -182,11 +151,13 @@ export class ScanService {
 
     if (!pet) throw new NotFoundException('Pet não encontrado.');
 
-    const hasGps = dto.consentGranted && dto.latitude != null;
-    const locationSource = hasGps ? LocationSource.GPS : LocationSource.IP;
-
-    let latitude = dto.latitude ?? null;
-    let longitude = dto.longitude ?? null;
+    const hasGps =
+      dto.consentGranted && dto.latitude != null && dto.longitude != null;
+    // IP is never geolocated: sending the finder's address to a third party
+    // would need its own consent and an international transfer basis.
+    const locationSource = hasGps ? LocationSource.GPS : LocationSource.NONE;
+    const latitude = hasGps ? (dto.latitude ?? null) : null;
+    const longitude = hasGps ? (dto.longitude ?? null) : null;
 
     const { scanLog, alertSent } = await this.prisma.$transaction(
       async (tx) => {
@@ -220,35 +191,12 @@ export class ScanService {
       },
     );
 
-    // The finder's address goes to a third party only when the owner will
-    // actually get an alert, and only with the finder's consent. The lookup
-    // runs after commit so the pet lock is never held across the network.
-    if (!hasGps && alertSent && dto.consentGranted) {
-      const resolved = await this.resolveLocationByIp(dto.ipAddress);
-      latitude = resolved.latitude;
-      longitude = resolved.longitude;
-      if (latitude != null && longitude != null) {
-        // The alert is already committed; a failed write must not block it.
-        await this.prisma.scanLog
-          .update({ where: { id: scanLog.id }, data: { latitude, longitude } })
-          .catch((err: unknown) =>
-            console.error(
-              '[ScanLog] Falha ao gravar localização:',
-              describeError(err),
-            ),
-          );
-      }
-    }
-
     if (alertSent) {
       const location =
         latitude != null && longitude != null ? { latitude, longitude } : null;
-      const isGps = locationSource === LocationSource.GPS;
       const message = location
-        ? isGps
-          ? `Seu pet ${pet.name} foi encontrado! 📍 Localização informada pelo aparelho de quem leu a tag (não verificada): https://maps.google.com/?q=${latitude},${longitude}`
-          : `Seu pet ${pet.name} foi encontrado! O resgatador negou o GPS. Endereço baseado no IP (pode estar impreciso): https://maps.google.com/?q=${latitude},${longitude}`
-        : `Seu pet ${pet.name} foi encontrado! Não foi possível obter localização.`;
+        ? `Seu pet ${pet.name} foi encontrado! 📍 Localização informada pelo aparelho de quem leu a tag (não verificada): https://maps.google.com/?q=${latitude},${longitude}`
+        : `Seu pet ${pet.name} foi encontrado! Quem leu a tag não compartilhou a localização.`;
 
       const dispatches: Promise<void>[] = [];
 

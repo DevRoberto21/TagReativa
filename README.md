@@ -6,7 +6,7 @@ Tag com QR code para pets. O tutor cadastra o animal, imprime o QR code e prende
 
 1. O tutor cria a conta, vincula o Telegram e cadastra os pets.
 2. Cada pet recebe um QR code único que aponta para `/scan/:petId`.
-3. Quem encontra o animal escaneia o código. A página pública pede consentimento para usar o GPS; se a pessoa negar, a localização é estimada pelo IP.
+3. Quem encontra o animal escaneia o código. Antes de qualquer coleta, a página pública explica como os dados são usados e deixa a pessoa escolher entre compartilhar o GPS ou seguir sem localização.
 4. Todo scan é registrado. Se o pet estiver com status **perdido**, o tutor é avisado por Telegram (mensagem + pino no mapa) e por e-mail, e a página mostra o nome do tutor e um link de WhatsApp para contato.
 5. O tutor acompanha o histórico de scans e muda o status do pet pelo painel.
 
@@ -16,7 +16,7 @@ Tag com QR code para pets. O tutor cadastra o animal, imprime o QR code e prende
 | --- | --- |
 | Backend | NestJS 11, TypeScript, Prisma 6, PostgreSQL 16, Passport JWT, bcrypt, Helmet, Throttler |
 | Frontend | React 19, Vite 8, React Router 7, Axios, Motion, CSS Modules |
-| Serviços externos | Telegram Bot API, Brevo (e-mail transacional), Cloudinary (fotos), ip-api.com (localização por IP) |
+| Serviços externos | Telegram Bot API, Brevo (e-mail transacional), Cloudinary (fotos) |
 | Deploy | Frontend na Vercel; backend preparado para Render com banco Neon |
 
 ## Estrutura
