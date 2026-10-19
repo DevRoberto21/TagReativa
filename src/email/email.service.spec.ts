@@ -1,3 +1,4 @@
+import { inspect } from 'util';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EmailService } from './email.service';
 
@@ -57,5 +58,21 @@ describe('EmailService', () => {
     );
 
     expect(result).toBe(false);
+  });
+
+  it('never logs the recipient or the provider response body', async () => {
+    const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+    sendTransacEmail.mockRejectedValueOnce(
+      Object.assign(new Error('Brevo API error'), {
+        body: { to: [{ email: 'owner@example.com' }] },
+      }),
+    );
+
+    await service.send('owner@example.com', 'Assunto', 'Corpo');
+
+    expect(inspect(log.mock.calls, { depth: null })).not.toContain(
+      'owner@example.com',
+    );
+    log.mockRestore();
   });
 });

@@ -15,7 +15,8 @@ enum PetStatus {
 
 enum LocationSource {
   GPS
-  IP
+  IP // legacy: IP geolocation was removed; kept for existing rows
+  NONE
 }
 
 enum NotificationChannel {

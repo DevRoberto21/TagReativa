@@ -1,3 +1,4 @@
+import { inspect } from 'util';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
@@ -110,6 +111,22 @@ describe('AuthService', () => {
   });
 
   describe('forgotPassword', () => {
+    it('logs the user id, not the address, when the email fails', async () => {
+      const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+      usersService.findByEmail.mockResolvedValue(existingUser);
+      prisma.passwordResetToken.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.passwordResetToken.create.mockResolvedValue({});
+      emailService.send.mockResolvedValue(false);
+
+      await service.forgotPassword({ email: 'owner@example.com' });
+      await new Promise(setImmediate);
+
+      const logged = inspect(log.mock.calls, { depth: null });
+      expect(logged).toContain('user-1');
+      expect(logged).not.toContain('owner@example.com');
+      log.mockRestore();
+    });
+
     it('stops issuing links once the account has 3 live tokens', async () => {
       usersService.findByEmail.mockResolvedValue(existingUser);
       prisma.passwordResetToken.deleteMany.mockResolvedValue({ count: 0 });

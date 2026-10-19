@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PetsService } from './pets.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { Prisma } from '@prisma/client';
 
 describe('PetsService', () => {
@@ -10,6 +15,7 @@ describe('PetsService', () => {
     pet: Record<string, jest.Mock>;
     scanLog: { findMany: jest.Mock };
   };
+  let cloudinary: { isOwnedPhotoUrl: jest.Mock; deleteUnusedPhotos: jest.Mock };
 
   beforeEach(async () => {
     prisma = {
@@ -22,8 +28,16 @@ describe('PetsService', () => {
       },
       scanLog: { findMany: jest.fn().mockResolvedValue([]) },
     };
+    cloudinary = {
+      isOwnedPhotoUrl: jest.fn().mockReturnValue(true),
+      deleteUnusedPhotos: jest.fn().mockResolvedValue(undefined),
+    };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PetsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        PetsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: CloudinaryService, useValue: cloudinary },
+      ],
     }).compile();
 
     service = module.get<PetsService>(PetsService);
@@ -87,6 +101,72 @@ describe('PetsService', () => {
         await expect(call(service)).rejects.toThrow(NotFoundException);
       },
     );
+  });
+
+  describe('photos', () => {
+    const oldUrl =
+      'https://res.cloudinary.com/dan2bsmlk/image/upload/v1/old.jpg';
+    const newUrl =
+      'https://res.cloudinary.com/dan2bsmlk/image/upload/v2/pets/owner-1/new.jpg';
+    const storedPet = { id: 'pet-1', ownerId: 'owner-1', photoUrl: oldUrl };
+
+    it('rejects a new pet whose photo was not uploaded by the owner', async () => {
+      cloudinary.isOwnedPhotoUrl.mockReturnValue(false);
+
+      await expect(
+        service.create('owner-1', {
+          name: 'Rex',
+          species: 'dog',
+          photoUrl: newUrl,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(cloudinary.isOwnedPhotoUrl).toHaveBeenCalledWith(
+        newUrl,
+        'owner-1',
+      );
+      expect(prisma.pet.create).not.toHaveBeenCalled();
+    });
+
+    it('accepts an edit that resends the current photo, even an old one', async () => {
+      cloudinary.isOwnedPhotoUrl.mockReturnValue(false);
+      prisma.pet.findUnique.mockResolvedValue(storedPet);
+      prisma.pet.update.mockResolvedValue(storedPet);
+
+      await service.updatePet('pet-1', 'owner-1', { photoUrl: oldUrl });
+
+      expect(prisma.pet.update).toHaveBeenCalled();
+      expect(cloudinary.deleteUnusedPhotos).not.toHaveBeenCalled();
+    });
+
+    it('rejects an edit to a photo the owner did not upload', async () => {
+      cloudinary.isOwnedPhotoUrl.mockReturnValue(false);
+      prisma.pet.findUnique.mockResolvedValue(storedPet);
+
+      await expect(
+        service.updatePet('pet-1', 'owner-1', { photoUrl: newUrl }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.pet.update).not.toHaveBeenCalled();
+    });
+
+    it('deletes the replaced photo after the edit is saved', async () => {
+      prisma.pet.findUnique.mockResolvedValue(storedPet);
+      prisma.pet.update.mockResolvedValue({ ...storedPet, photoUrl: newUrl });
+
+      await service.updatePet('pet-1', 'owner-1', { photoUrl: newUrl });
+
+      expect(cloudinary.deleteUnusedPhotos).toHaveBeenCalledWith([oldUrl]);
+      expect(
+        cloudinary.deleteUnusedPhotos.mock.invocationCallOrder[0],
+      ).toBeGreaterThan(prisma.pet.update.mock.invocationCallOrder[0]);
+    });
+
+    it('deletes the photo of a deleted pet', async () => {
+      prisma.pet.delete.mockResolvedValue(storedPet);
+
+      await service.deletePet('pet-1', 'owner-1');
+
+      expect(cloudinary.deleteUnusedPhotos).toHaveBeenCalledWith([oldUrl]);
+    });
   });
 
   describe('findScans', () => {

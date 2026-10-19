@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -23,7 +24,10 @@ function isUniqueViolation(err: unknown): boolean {
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cloudinary: CloudinaryService,
+  ) {}
 
   async create(dto: CreateUserDto) {
     const exists = await this.prisma.user.findUnique({
@@ -118,6 +122,12 @@ export class UsersService {
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new ForbiddenException('Senha incorreta.');
 
+    // Pets cascade with the account, so their photos are read first.
+    const pets = await this.prisma.pet.findMany({
+      where: { ownerId: userId },
+      select: { photoUrl: true },
+    });
     await this.prisma.user.delete({ where: { id: userId } });
+    await this.cloudinary.deleteUnusedPhotos(pets.map((p) => p.photoUrl));
   }
 }

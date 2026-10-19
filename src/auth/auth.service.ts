@@ -21,6 +21,7 @@ import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
 import { ConfirmTwoFactorDto } from './dto/confirm-two-factor.dto';
 import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { describeError } from '../describe-error';
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const MAX_LIVE_RESET_TOKENS = 3;
@@ -138,15 +139,15 @@ export class AuthService {
       .then((delivered) => {
         if (!delivered) {
           console.error(
-            '[AUTH] Falha ao enviar e-mail de código de verificação para',
-            email,
+            '[AUTH] Falha ao enviar e-mail de código de verificação, usuário',
+            userId,
           );
         }
       })
       .catch((err: unknown) => {
         console.error(
           '[AUTH] Erro inesperado no envio do e-mail de código de verificação:',
-          err,
+          describeError(err),
         );
       });
 
@@ -336,15 +337,15 @@ export class AuthService {
       .then((delivered) => {
         if (!delivered) {
           console.error(
-            '[AUTH] Falha ao enviar e-mail de aviso de desativação de 2FA para',
-            user.email,
+            '[AUTH] Falha ao enviar e-mail de aviso de desativação de 2FA, usuário',
+            user.id,
           );
         }
       })
       .catch((err: unknown) => {
         console.error(
           '[AUTH] Erro inesperado no envio do e-mail de aviso de desativação de 2FA:',
-          err,
+          describeError(err),
         );
       });
 
@@ -392,15 +393,15 @@ export class AuthService {
       .then((delivered) => {
         if (!delivered) {
           console.error(
-            '[AUTH] Falha ao enviar e-mail de recuperação de senha para',
-            user.email,
+            '[AUTH] Falha ao enviar e-mail de recuperação de senha, usuário',
+            user.id,
           );
         }
       })
       .catch((err: unknown) => {
         console.error(
           '[AUTH] Erro inesperado no envio do e-mail de recuperação de senha:',
-          err,
+          describeError(err),
         );
       });
 
@@ -501,15 +502,15 @@ export class AuthService {
       .then((delivered) => {
         if (!delivered) {
           console.error(
-            '[AUTH] Falha ao enviar e-mail de aviso de alteração de senha para',
-            user.email,
+            '[AUTH] Falha ao enviar e-mail de aviso de alteração de senha, usuário',
+            user.id,
           );
         }
       })
       .catch((err: unknown) => {
         console.error(
           '[AUTH] Erro inesperado no envio do e-mail de aviso de alteração de senha:',
-          err,
+          describeError(err),
         );
       });
 

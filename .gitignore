@@ -151,3 +151,8 @@ strix_runs/
 
 # Local design specs and implementation plans
 docs/superpowers/
+
+# macOS Finder metadata
+.DS_Store
+
+modelo3d 

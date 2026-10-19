@@ -14,6 +14,7 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { createHash, timingSafeEqual } from 'crypto';
 import { TelegramLinkService } from './telegram-link.service';
 import type { TelegramUpdate } from './telegram-link.service';
+import { describeError } from '../describe-error';
 
 interface AuthenticatedRequest {
   user: {
@@ -77,7 +78,10 @@ export class TelegramController {
     } catch (err) {
       // Telegram retries non-2xx answers; a failing update must not block
       // the queue, so log it and acknowledge.
-      console.error('[TELEGRAM] falha ao processar update:', err);
+      console.error(
+        '[TELEGRAM] falha ao processar update:',
+        describeError(err),
+      );
     }
     return { ok: true };
   }

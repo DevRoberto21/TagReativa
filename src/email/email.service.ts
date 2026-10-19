@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { BrevoClient } from '@getbrevo/brevo';
+import { describeError } from '../describe-error';
 
 @Injectable()
 export class EmailService {
@@ -32,7 +33,7 @@ export class EmailService {
       });
       return true;
     } catch (err) {
-      console.error('[EMAIL] erro:', err);
+      console.error('[EMAIL] erro:', describeError(err));
       return false;
     }
   }

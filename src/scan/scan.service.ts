@@ -2,8 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TelegramService } from '../telegram/telegram.service';
 import { EmailService } from '../email/email.service';
-import { LocationSource, NotificationChannel } from '@prisma/client';
+import { LocationSource, NotificationChannel, Prisma } from '@prisma/client';
 import { isUUID } from 'class-validator';
+import { describeError } from '../describe-error';
 
 export interface ScanDto {
   // Short code from the printed tag, or the pet UUID on tags printed before
@@ -25,16 +26,6 @@ const MAX_ALERTS_PER_DEVICE = 3;
 // deviceId is chosen by the client, so the server-derived address is capped too.
 const MAX_ALERTS_PER_SOURCE = 3;
 const MAX_ALERTS_PER_PET = 10;
-const IP_LOOKUP_TIMEOUT_MS = 3000;
-// Loopback, private, link-local and unique-local ranges, also IPv4-mapped.
-const PRIVATE_IP =
-  /^(?:::ffff:)?(?:127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|169\.254\.)|^(?:::1$|fe80:|f[cd][0-9a-f]{2}:)/i;
-
-interface IpApiResponse {
-  status: string;
-  lat: number;
-  lon: number;
-}
 
 @Injectable()
 export class ScanService {
@@ -50,27 +41,6 @@ export class ScanService {
     return `https://wa.me/${number}`;
   }
 
-  private async resolveLocationByIp(
-    ip: string,
-  ): Promise<{ latitude: number | null; longitude: number | null }> {
-    if (PRIVATE_IP.test(ip)) return { latitude: null, longitude: null };
-
-    try {
-      const res = await fetch(`http://ip-api.com/json/${ip}`, {
-        signal: AbortSignal.timeout(IP_LOOKUP_TIMEOUT_MS),
-      });
-      const data = (await res.json()) as IpApiResponse;
-
-      if (data.status !== 'success') return { latitude: null, longitude: null };
-
-      return { latitude: data.lat, longitude: data.lon };
-    } catch (err) {
-      console.error('[IP-API] erro:', err);
-    }
-
-    return { latitude: null, longitude: null };
-  }
-
   private async persistNotification(
     scanLogId: string,
     channel: NotificationChannel,
@@ -81,7 +51,10 @@ export class ScanService {
         data: { scanLogId, channel, delivered },
       });
     } catch (err: unknown) {
-      console.error('[Notification] Falha ao persistir registro:', err);
+      console.error(
+        '[Notification] Falha ao persistir registro:',
+        describeError(err),
+      );
     }
   }
 
@@ -103,7 +76,10 @@ export class ScanService {
         );
       }
     } catch (err: unknown) {
-      console.error('[Notification] Falha ao enviar Telegram:', err);
+      console.error(
+        '[Notification] Falha ao enviar Telegram:',
+        describeError(err),
+      );
       return;
     }
     await this.persistNotification(
@@ -127,7 +103,10 @@ export class ScanService {
         message,
       );
     } catch (err: unknown) {
-      console.error('[Notification] Falha ao enviar Email:', err);
+      console.error(
+        '[Notification] Falha ao enviar Email:',
+        describeError(err),
+      );
       return;
     }
     await this.persistNotification(
@@ -138,6 +117,7 @@ export class ScanService {
   }
 
   private async canSendAlert(
+    tx: Prisma.TransactionClient,
     petId: string,
     ipAddress: string,
     deviceId?: string,
@@ -145,17 +125,17 @@ export class ScanService {
     const since = new Date(Date.now() - ALERT_WINDOW_MS);
     const where = { petId, alertSent: true, timestamp: { gte: since } };
 
-    const petAlerts = await this.prisma.scanLog.count({ where });
+    const petAlerts = await tx.scanLog.count({ where });
     if (petAlerts >= MAX_ALERTS_PER_PET) return false;
 
-    const sourceAlerts = await this.prisma.scanLog.count({
+    const sourceAlerts = await tx.scanLog.count({
       where: { ...where, ipAddress },
     });
     if (sourceAlerts >= MAX_ALERTS_PER_SOURCE) return false;
 
     if (!deviceId) return true;
 
-    const deviceAlerts = await this.prisma.scanLog.count({
+    const deviceAlerts = await tx.scanLog.count({
       where: { ...where, deviceId },
     });
     return deviceAlerts < MAX_ALERTS_PER_DEVICE;
@@ -171,47 +151,52 @@ export class ScanService {
 
     if (!pet) throw new NotFoundException('Pet não encontrado.');
 
-    const hasGps = dto.consentGranted && dto.latitude != null;
-    const locationSource = hasGps ? LocationSource.GPS : LocationSource.IP;
+    const hasGps =
+      dto.consentGranted && dto.latitude != null && dto.longitude != null;
+    // IP is never geolocated: sending the finder's address to a third party
+    // would need its own consent and an international transfer basis.
+    const locationSource = hasGps ? LocationSource.GPS : LocationSource.NONE;
+    const latitude = hasGps ? (dto.latitude ?? null) : null;
+    const longitude = hasGps ? (dto.longitude ?? null) : null;
 
-    let latitude = dto.latitude ?? null;
-    let longitude = dto.longitude ?? null;
+    const { scanLog, alertSent } = await this.prisma.$transaction(
+      async (tx) => {
+        let alertSent = false;
+        if (pet.status === 'LOST') {
+          // Concurrent scans of the same pet would otherwise all read the same
+          // count and pass the cap together.
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${pet.id}))`;
+          alertSent = await this.canSendAlert(
+            tx,
+            pet.id,
+            dto.ipAddress,
+            dto.deviceId,
+          );
+        }
 
-    const alertSent =
-      pet.status === 'LOST' &&
-      (await this.canSendAlert(pet.id, dto.ipAddress, dto.deviceId));
-
-    // The finder's address goes to a third party only when the owner will
-    // actually get an alert, and only with the finder's consent.
-    if (!hasGps && alertSent && dto.consentGranted) {
-      const resolved = await this.resolveLocationByIp(dto.ipAddress);
-      latitude = resolved.latitude;
-      longitude = resolved.longitude;
-    }
-
-    const scanLog = await this.prisma.scanLog.create({
-      data: {
-        petId: pet.id,
-        latitude,
-        longitude,
-        ipAddress: dto.ipAddress,
-        locationSource,
-        consentGranted: dto.consentGranted,
-        consentVersion: dto.consentVersion,
-        deviceId: dto.deviceId,
-        alertSent,
+        const scanLog = await tx.scanLog.create({
+          data: {
+            petId: pet.id,
+            latitude,
+            longitude,
+            ipAddress: dto.ipAddress,
+            locationSource,
+            consentGranted: dto.consentGranted,
+            consentVersion: dto.consentVersion,
+            deviceId: dto.deviceId,
+            alertSent,
+          },
+        });
+        return { scanLog, alertSent };
       },
-    });
+    );
 
     if (alertSent) {
       const location =
         latitude != null && longitude != null ? { latitude, longitude } : null;
-      const isGps = locationSource === LocationSource.GPS;
       const message = location
-        ? isGps
-          ? `Seu pet ${pet.name} foi encontrado! 📍 Localização informada pelo aparelho de quem leu a tag (não verificada): https://maps.google.com/?q=${latitude},${longitude}`
-          : `Seu pet ${pet.name} foi encontrado! O resgatador negou o GPS. Endereço baseado no IP (pode estar impreciso): https://maps.google.com/?q=${latitude},${longitude}`
-        : `Seu pet ${pet.name} foi encontrado! Não foi possível obter localização.`;
+        ? `Seu pet ${pet.name} foi encontrado! 📍 Localização informada pelo aparelho de quem leu a tag (não verificada): https://maps.google.com/?q=${latitude},${longitude}`
+        : `Seu pet ${pet.name} foi encontrado! Quem leu a tag não compartilhou a localização.`;
 
       const dispatches: Promise<void>[] = [];
 

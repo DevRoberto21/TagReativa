@@ -42,10 +42,61 @@ function formatSeconds(total) {
   return `${m}:${s}`;
 }
 
+// Shown before any data is collected, so the browser's location prompt never
+// appears unexplained. Wording changes must bump CONSENT_VERSION in useScan.
+function ConsentScreen({ onChoose }) {
+  return (
+    <Page center>
+      <Panel className={styles.consent}>
+        <Icon name="shield" size={32} className={styles.consentIcon} />
+        <h1 className={styles.messageTitle}>Antes de continuar</h1>
+        <p className={styles.sub}>
+          Você leu a tag de um pet. Se ele estiver perdido, o tutor recebe um alerta por Telegram e e-mail.
+          Nas duas opções abaixo você vê os dados do pet e o contato do tutor.
+        </p>
+
+        <div className={styles.notes}>
+          <span className={styles.label}>Como seus dados são usados</span>
+          <ul className={styles.consentList}>
+            <li>
+              <strong>Localização, só se você permitir.</strong> A posição do seu aparelho vai no alerta ao tutor,
+              para ele encontrar o pet. É lida uma única vez, agora. Você não é acompanhado depois.
+            </li>
+            <li>
+              <strong>Endereço IP e identificador do aparelho.</strong> Registrados sempre, só para evitar abuso
+              (leituras repetidas e alertas falsos). Não vão para o tutor nem para terceiros e não são usados para
+              descobrir onde você está.
+            </li>
+          </ul>
+        </div>
+
+        <div className={styles.action}>
+          <Button size="lg" block icon="signal" onClick={() => onChoose(true)}>
+            Compartilhar minha localização
+          </Button>
+          <Button size="lg" block variant="secondary" onClick={() => onChoose(false)}>
+            Continuar sem localização
+          </Button>
+        </div>
+
+        <p className={styles.consentFoot}>
+          Ao compartilhar, o navegador pede permissão de localização; você ainda pode negar ali.
+          Base legal (LGPD, Lei 13.709/2018): consentimento para a localização e legítimo interesse para o IP.
+        </p>
+      </Panel>
+    </Page>
+  );
+}
+
 export default function ScanPage() {
   const { petId } = useParams();
-  const { result, error, loading } = useScan(petId);
+  const [shareLocation, setShareLocation] = useState(null);
+  const { result, error, loading } = useScan(petId, shareLocation);
   const secondsLeft = useCountdown(Boolean(result));
+
+  if (shareLocation == null && !error) {
+    return <ConsentScreen onChoose={setShareLocation} />;
+  }
 
   if (loading) {
     return (

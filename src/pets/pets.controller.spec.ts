@@ -46,9 +46,13 @@ describe('PetsController', () => {
     };
     cloudinaryService.generateUploadSignature.mockReturnValue(mockSignature);
 
-    const result = controller.getPhotoUploadSignature();
+    const result = controller.getPhotoUploadSignature({
+      user: { userId: 'owner-1' },
+    });
 
     expect(result).toEqual(mockSignature);
-    expect(cloudinaryService.generateUploadSignature).toHaveBeenCalledTimes(1);
+    expect(cloudinaryService.generateUploadSignature).toHaveBeenCalledWith(
+      'owner-1',
+    );
   });
 });

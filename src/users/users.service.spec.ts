@@ -1,13 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 describe('UsersService', () => {
   let service: UsersService;
-  let prisma: { user: Record<string, jest.Mock> };
+  let prisma: {
+    user: Record<string, jest.Mock>;
+    pet: { findMany: jest.Mock };
+  };
+  let cloudinary: { deleteUnusedPhotos: jest.Mock };
 
   beforeEach(async () => {
     prisma = {
@@ -17,9 +22,15 @@ describe('UsersService', () => {
         update: jest.fn(),
         delete: jest.fn(),
       },
+      pet: { findMany: jest.fn().mockResolvedValue([]) },
     };
+    cloudinary = { deleteUnusedPhotos: jest.fn().mockResolvedValue(undefined) };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [UsersService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        UsersService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: CloudinaryService, useValue: cloudinary },
+      ],
     }).compile();
 
     service = module.get<UsersService>(UsersService);
@@ -106,11 +117,33 @@ describe('UsersService', () => {
       });
     });
 
+    it('deletes the photos of the account pets after the account', async () => {
+      prisma.pet.findMany.mockResolvedValue([
+        { photoUrl: 'https://a/1.jpg' },
+        { photoUrl: null },
+      ]);
+
+      await service.deleteMe('user-1', { password: 'senha123' });
+
+      expect(prisma.pet.findMany).toHaveBeenCalledWith({
+        where: { ownerId: 'user-1' },
+        select: { photoUrl: true },
+      });
+      expect(cloudinary.deleteUnusedPhotos).toHaveBeenCalledWith([
+        'https://a/1.jpg',
+        null,
+      ]);
+      expect(
+        cloudinary.deleteUnusedPhotos.mock.invocationCallOrder[0],
+      ).toBeGreaterThan(prisma.user.delete.mock.invocationCallOrder[0]);
+    });
+
     it('rejects a wrong password with 403 and keeps the account', async () => {
       await expect(
         service.deleteMe('user-1', { password: 'errada123' }),
       ).rejects.toBeInstanceOf(ForbiddenException);
       expect(prisma.user.delete).not.toHaveBeenCalled();
+      expect(cloudinary.deleteUnusedPhotos).not.toHaveBeenCalled();
     });
   });
   describe('contact conflicts', () => {
