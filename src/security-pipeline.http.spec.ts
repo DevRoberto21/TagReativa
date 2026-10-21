@@ -1,6 +1,8 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
+import { ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
+import * as bcrypt from 'bcrypt';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import type { App } from 'supertest/types';
@@ -22,6 +24,7 @@ describe('Security pipeline over HTTP', () => {
     pet: { update: jest.Mock };
   };
   let token: string;
+  let throttlerStorage: ThrottlerStorageService;
 
   beforeAll(async () => {
     process.env = {
@@ -59,6 +62,7 @@ describe('Security pipeline over HTTP', () => {
     );
     await app.init();
 
+    throttlerStorage = moduleRef.get<ThrottlerStorageService>(ThrottlerStorage);
     token = moduleRef
       .get(JwtService)
       .sign({ sub: 'user-1', email: 'owner@example.com', ver: 0 });
@@ -114,6 +118,30 @@ describe('Security pipeline over HTTP', () => {
       .set(headers)
       .send({ message: { chat: { id: 1 }, text: '/start x' } })
       .expect(401);
+  });
+
+  it('sets the JWT as an httpOnly cookie and keeps it out of the login body', async () => {
+    const password = 'Senha-certa1';
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'owner@example.com',
+      passwordHash: bcrypt.hashSync(password, 10),
+      tokenVersion: 0,
+      twoFactorEnabled: false,
+    });
+
+    const res = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'owner@example.com', password })
+      .expect(201);
+
+    const cookies = [res.headers['set-cookie']].flat().join('; ');
+    expect(cookies).toMatch(/access_token=[^;]+/);
+    expect(cookies).toContain('HttpOnly');
+    expect(res.body).not.toHaveProperty('access_token');
+    // This login counts against the per-IP limit; clear it so the
+    // throttle test below starts from a clean window.
+    throttlerStorage.storage.clear();
   });
 
   it('throttles login with 429 on the 6th attempt in a minute', async () => {

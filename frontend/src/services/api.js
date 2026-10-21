@@ -10,7 +10,8 @@ api.interceptors.response.use(
   (error) => {
     const isPublicRoute = /^\/(scan|s)\//i.test(window.location.pathname);
     const isTwoFactorDisable = error.config?.url?.includes('/auth/2fa/disable');
-    if (error.response?.status === 401 && !isPublicRoute && !isTwoFactorDisable) {
+    const isLogin = error.config?.url?.startsWith('/auth/login');
+    if (error.response?.status === 401 && !isPublicRoute && !isTwoFactorDisable && !isLogin) {
       markSignedOut();
       window.location.href = '/login';
     }
