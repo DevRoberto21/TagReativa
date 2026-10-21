@@ -71,7 +71,15 @@ export class PetsService {
   }
 
   async findAllByOwner(ownerId: string) {
-    return this.prisma.pet.findMany({ where: { ownerId } });
+    const pets = await this.prisma.pet.findMany({
+      where: { ownerId },
+      omit: { ownerId: true },
+      include: { _count: { select: { scanLogs: true } } },
+    });
+    return pets.map(({ _count, ...pet }) => ({
+      ...pet,
+      scanCount: _count.scanLogs,
+    }));
   }
 
   async findOne(petId: string, ownerId: string): Promise<Pet> {
@@ -151,15 +159,12 @@ export class PetsService {
       where: { petId },
       orderBy: { timestamp: 'desc' },
       take: MAX_SCANS_RETURNED,
-      // ipAddress and deviceId identify the finder; the owner never needs them.
+      // Only what the owner needs to find the pet; consent fields and finder
+      // identifiers (ipAddress, deviceId) stay server-side.
       select: {
-        id: true,
-        petId: true,
         latitude: true,
         longitude: true,
         locationSource: true,
-        consentGranted: true,
-        consentVersion: true,
         timestamp: true,
         alertSent: true,
       },

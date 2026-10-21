@@ -169,6 +169,23 @@ describe('PetsService', () => {
     });
   });
 
+  describe('findAllByOwner', () => {
+    it('returns scanCount and hides ownerId', async () => {
+      prisma.pet.findMany.mockResolvedValue([
+        { id: 'pet-1', name: 'Rex', _count: { scanLogs: 3 } },
+      ]);
+
+      await expect(service.findAllByOwner('owner-1')).resolves.toEqual([
+        { id: 'pet-1', name: 'Rex', scanCount: 3 },
+      ]);
+      expect(prisma.pet.findMany).toHaveBeenCalledWith({
+        where: { ownerId: 'owner-1' },
+        omit: { ownerId: true },
+        include: { _count: { select: { scanLogs: true } } },
+      });
+    });
+  });
+
   describe('findScans', () => {
     it('returns at most 200 scans, newest first', async () => {
       prisma.pet.findUnique.mockResolvedValue({
@@ -183,13 +200,9 @@ describe('PetsService', () => {
         orderBy: { timestamp: 'desc' },
         take: 200,
         select: {
-          id: true,
-          petId: true,
           latitude: true,
           longitude: true,
           locationSource: true,
-          consentGranted: true,
-          consentVersion: true,
           timestamp: true,
           alertSent: true,
         },

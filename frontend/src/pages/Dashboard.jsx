@@ -21,7 +21,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [pets, setPets] = useState([]);
-  const [scanCounts, setScanCounts] = useState({});
   const [confirmModal, setConfirmModal] = useState(null);
   const [statusError, setStatusError] = useState('');
   const { qrModal, openQr, downloadSvg, downloadPng, closeQr } = useQrModal();
@@ -29,22 +28,7 @@ export default function Dashboard() {
   useEffect(() => {
     api.get('/users/me').then(r => setUser(r.data)).catch(() => { });
 
-    api.get('/pets').then(async r => {
-      const petsData = r.data;
-      setPets(petsData);
-
-      const results = await Promise.all(
-        petsData.map(pet =>
-          api.get(`/pets/${pet.id}/scans`)
-            .then(res => ({ id: pet.id, count: res.data.length }))
-            .catch(() => ({ id: pet.id, count: 0 }))
-        )
-      );
-
-      const counts = {};
-      results.forEach(({ id, count }) => { counts[id] = count; });
-      setScanCounts(counts);
-    }).catch(() => { });
+    api.get('/pets').then(r => setPets(r.data)).catch(() => { });
   }, []);
 
   function askToggle(pet) {
@@ -121,7 +105,7 @@ export default function Dashboard() {
                     <span>{pet.species}</span>
                     <span className={styles.scans}>
                       <Icon name="signal" size={14} />
-                      <span><strong><Counter value={scanCounts[pet.id] ?? 0} /></strong> leituras de sinal</span>
+                      <span><strong><Counter value={pet.scanCount ?? 0} /></strong> leituras de sinal</span>
                     </span>
                   </div>
                 </div>
