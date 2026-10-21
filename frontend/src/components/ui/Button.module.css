@@ -6,8 +6,8 @@
   min-height: 48px;
   padding: 10px var(--space-5);
   font-family: var(--font-ui);
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   line-height: 1.25;
   text-align: center;
   text-decoration: none;
@@ -28,8 +28,8 @@
 }
 
 .button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  opacity: 0.6;
+  cursor: progress;
 }
 
 .block {
@@ -53,17 +53,19 @@
 .primary {
   background: var(--signal);
   color: var(--signal-ink);
+  box-shadow: 0 0 0 1px var(--signal), 0 4px 16px color-mix(in srgb, var(--signal) 25%, transparent);
 }
 
 .secondary {
   background: var(--surface-raised);
-  border-color: var(--line-strong);
+  border-color: color-mix(in srgb, var(--signal) 45%, var(--line-strong));
   color: var(--text);
 }
 
 .ghost {
   background: transparent;
-  color: var(--text-muted);
+  border-color: var(--line-strong);
+  color: var(--text);
 }
 
 .danger {
@@ -87,7 +89,7 @@
   }
 
   .ghost:hover:not(:disabled) {
-    color: var(--text);
+    border-color: var(--signal);
     background: var(--surface-raised);
   }
 
