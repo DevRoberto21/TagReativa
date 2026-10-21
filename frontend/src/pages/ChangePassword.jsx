@@ -16,13 +16,11 @@ export default function ChangePassword() {
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    setSuccess(false);
     if (!meetsPasswordPolicy(newPassword)) {
       setError(PASSWORD_POLICY_MESSAGE);
       return;
@@ -36,10 +34,7 @@ export default function ChangePassword() {
       await api.post('/auth/change-password', { currentPassword, newPassword });
       // The change signs out every other session; this token keeps this one.
       markSignedIn();
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirm('');
-      setSuccess(true);
+      navigate('/dashboard', { replace: true, state: { notice: 'Senha alterada com sucesso.' } });
     } catch (err) {
       const status = err.response?.status;
       if (status === 403) setError('Senha atual incorreta.');
@@ -88,7 +83,6 @@ export default function ChangePassword() {
           </Notice>
 
           {error && <Notice tone="error">{error}</Notice>}
-          {success && <Notice tone="success">Senha alterada com sucesso.</Notice>}
 
           <Button type="submit" block disabled={submitting}>
             {submitting ? 'Salvando...' : 'Alterar Senha'}

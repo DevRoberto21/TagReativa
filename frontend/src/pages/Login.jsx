@@ -23,10 +23,12 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loginToken, setLoginToken] = useState('');
   const [code, setCode] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setSubmitting(true);
     try {
       const { data } = await api.post('/auth/login', { email, password });
       if (data.twoFactorRequired) {
@@ -41,12 +43,15 @@ export default function Login() {
           ? 'Muitas tentativas. Aguarde alguns minutos e tente novamente, ou redefina sua senha.'
           : 'E-mail ou senha inválidos.',
       );
+    } finally {
+      setSubmitting(false);
     }
   }
 
   async function handleVerifyCode(e) {
     e.preventDefault();
     setError('');
+    setSubmitting(true);
     try {
       await api.post('/auth/login/verify-2fa', {
         loginToken,
@@ -56,6 +61,8 @@ export default function Login() {
       navigate('/dashboard');
     } catch {
       setError('Código inválido ou expirado.');
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -64,7 +71,7 @@ export default function Login() {
       tagline="Identificação e resgate por QR"
       footer={!loginToken && (
         <>
-          <Link to="/register">Solicitar nova credencial — Criar Conta</Link>
+          <Link to="/register">Não tem conta? Criar conta</Link>
           <Link to="/esqueci-senha">Esqueci minha senha</Link>
         </>
       )}
@@ -84,7 +91,9 @@ export default function Login() {
               required
             />
             {error && <Notice tone="error">{error}</Notice>}
-            <Button type="submit" block>Confirmar Código</Button>
+            <Button type="submit" block disabled={submitting}>
+              {submitting ? 'Verificando...' : 'Confirmar código'}
+            </Button>
             <Button
               variant="secondary"
               block
@@ -116,7 +125,9 @@ export default function Login() {
               required
             />
             {error && <Notice tone="error">{error}</Notice>}
-            <Button type="submit" block>Autenticar Sistema</Button>
+            <Button type="submit" block disabled={submitting}>
+              {submitting ? 'Entrando...' : 'Entrar'}
+            </Button>
           </motion.form>
         )}
       </AnimatePresence>

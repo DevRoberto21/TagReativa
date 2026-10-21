@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import api from '../services/api';
 import { markSignedOut } from '../utils/session';
@@ -23,7 +23,18 @@ export default function Dashboard() {
   const [pets, setPets] = useState([]);
   const [confirmModal, setConfirmModal] = useState(null);
   const [statusError, setStatusError] = useState('');
+  const location = useLocation();
+  // One-shot message handed over by the page that redirected here.
+  const [notice, setNotice] = useState(location.state?.notice ?? '');
   const { qrModal, openQr, downloadSvg, downloadPng, closeQr } = useQrModal();
+
+  useEffect(() => {
+    if (!notice) return;
+    // Drop it from history so a reload or back does not show it again.
+    navigate(location.pathname, { replace: true, state: null });
+    const id = setTimeout(() => setNotice(''), 5000);
+    return () => clearTimeout(id);
+  }, [notice, navigate, location.pathname]);
 
   useEffect(() => {
     api.get('/users/me').then(r => setUser(r.data)).catch(() => { });
@@ -76,8 +87,13 @@ export default function Dashboard() {
       </motion.div>
 
       <AnimatePresence>
+        {notice && (
+          <motion.div key="notice" {...reveal}>
+            <Notice tone="success">{notice}</Notice>
+          </motion.div>
+        )}
         {statusError && (
-          <motion.div {...reveal}>
+          <motion.div key="status-error" {...reveal}>
             <Notice tone="error">{statusError}</Notice>
           </motion.div>
         )}
@@ -121,7 +137,7 @@ export default function Dashboard() {
                 </Button>
                 <div className={styles.actionGroup}>
                   <Button variant="secondary" size="sm" icon="qr" onClick={() => openQr(pet)}>QR Code</Button>
-                  <Button variant="ghost" size="sm" to={`/pets/${pet.id}/editar`}>Editar</Button>
+                  <Button variant="secondary" size="sm" to={`/pets/${pet.id}/editar`}>Editar</Button>
                 </div>
               </div>
             </Panel>

@@ -12,6 +12,7 @@ export default function Register() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', whatsapp: '', password: '', confirm: '', age: '' });
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   function handleChange(e) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -33,6 +34,7 @@ export default function Register() {
       setError('Você precisa ter pelo menos 18 anos.');
       return;
     }
+    setSubmitting(true);
     try {
       const digits = form.whatsapp.replace(/\D/g, '');
       const normalized = digits.length === 11 ? digits.slice(0, 2) + digits.slice(3) : digits;
@@ -45,6 +47,7 @@ export default function Register() {
       });
     } catch {
       setError('Erro ao criar conta. Verifique os dados.');
+      setSubmitting(false);
       return;
     }
     try {
@@ -85,7 +88,9 @@ export default function Register() {
         </Notice>
 
         {error && <Notice tone="error">{error}</Notice>}
-        <Button type="submit" block>Registrar no Ecossistema</Button>
+        <Button type="submit" block disabled={submitting}>
+          {submitting ? 'Criando conta...' : 'Criar conta'}
+        </Button>
       </form>
     </AuthLayout>
   );
