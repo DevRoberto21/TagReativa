@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, MotionConfig } from 'motion/react';
 import Backdrop from './components/ui/Backdrop';
+import ApiProgress from './components/ui/ApiProgress';
+import api from './services/api';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
@@ -49,11 +51,15 @@ function AnimatedRoutes() {
   );
 }
 
+// Wake the sleeping backend while the visitor is still reading or typing.
+api.get('/health', { silent: true }).catch(() => {});
+
 export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       <BrowserRouter>
         <Backdrop />
+        <ApiProgress />
         <AnimatedRoutes />
       </BrowserRouter>
     </MotionConfig>
