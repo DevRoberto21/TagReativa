@@ -46,11 +46,16 @@ export class PetsController {
     return this.petsService.findAllByOwner(req.user.userId);
   }
   @Get(':id')
-  findOne(
+  async findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.petsService.findOne(id, req.user.userId);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { ownerId: _ownerId, ...pet } = await this.petsService.findOne(
+      id,
+      req.user.userId,
+    );
+    return pet;
   }
 
   @Patch(':id/status')

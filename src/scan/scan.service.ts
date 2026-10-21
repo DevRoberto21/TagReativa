@@ -141,11 +141,24 @@ export class ScanService {
     return deviceAlerts < MAX_ALERTS_PER_DEVICE;
   }
 
+  private petWhere(petId: string) {
+    return isUUID(petId) ? { id: petId } : { shortCode: petId.toUpperCase() };
+  }
+
+  // Lets the scan page skip the location prompt for pets that are not lost.
+  // Status alone is already public: the scan response returns it.
+  async getStatus(petId: string) {
+    const pet = await this.prisma.pet.findUnique({
+      where: this.petWhere(petId),
+      select: { status: true },
+    });
+    if (!pet) throw new NotFoundException('Pet não encontrado.');
+    return { status: pet.status };
+  }
+
   async processScan(dto: ScanDto) {
     const pet = await this.prisma.pet.findUnique({
-      where: isUUID(dto.petId)
-        ? { id: dto.petId }
-        : { shortCode: dto.petId.toUpperCase() },
+      where: this.petWhere(dto.petId),
       include: { owner: true },
     });
 

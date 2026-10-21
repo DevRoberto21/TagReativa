@@ -539,4 +539,26 @@ describe('ScanService', () => {
       expect(result.ownerNotified).toBe(false);
     });
   });
+
+  describe('getStatus', () => {
+    it('returns only the status, looked up by short code', async () => {
+      prisma.pet.findUnique.mockResolvedValue({ status: PetStatus.SAFE });
+
+      await expect(service.getStatus('abc1234')).resolves.toEqual({
+        status: PetStatus.SAFE,
+      });
+      expect(prisma.pet.findUnique).toHaveBeenCalledWith({
+        where: { shortCode: 'ABC1234' },
+        select: { status: true },
+      });
+      expect(prisma.scanLog.create).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException for an unknown tag', async () => {
+      prisma.pet.findUnique.mockResolvedValue(null);
+      await expect(service.getStatus('abc1234')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
 });

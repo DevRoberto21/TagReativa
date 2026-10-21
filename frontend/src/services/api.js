@@ -1,28 +1,42 @@
 import axios from 'axios';
+import { markSignedOut } from '../utils/session';
 
-if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
-  throw new Error('VITE_API_URL não definido.');
+// Same-origin on purpose: the Vite proxy (dev) and the Vercel rewrite (prod)
+// forward /api to the backend, so the session cookie stays first-party.
+const api = axios.create({ baseURL: '/api' });
+
+// Pending-request count for the global progress bar. Requests sent with
+// `silent: true` (the warm-up ping) do not count.
+let pending = 0;
+const listeners = new Set();
+function track(config, delta) {
+  if (config?.silent) return;
+  pending += delta;
+  listeners.forEach((fn) => fn());
 }
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3000',
-});
+export function subscribePending(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+export const getPending = () => pending;
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  track(config, 1);
   return config;
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    track(response.config, -1);
+    return response;
+  },
   (error) => {
+    track(error.config, -1);
     const isPublicRoute = /^\/(scan|s)\//i.test(window.location.pathname);
     const isTwoFactorDisable = error.config?.url?.includes('/auth/2fa/disable');
-    if (error.response?.status === 401 && !isPublicRoute && !isTwoFactorDisable) {
-      localStorage.removeItem('access_token');
+    const isLogin = error.config?.url?.startsWith('/auth/login');
+    if (error.response?.status === 401 && !isPublicRoute && !isTwoFactorDisable && !isLogin) {
+      markSignedOut();
       window.location.href = '/login';
     }
     return Promise.reject(error);

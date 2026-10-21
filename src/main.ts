@@ -14,6 +14,8 @@ async function bootstrap() {
   const { default: helmet } = await import('helmet');
 
   app.use(helmet());
+  const { default: cookieParser } = await import('cookie-parser');
+  app.use(cookieParser());
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   const allowedOrigins = [
@@ -21,7 +23,8 @@ async function bootstrap() {
     process.env.FRONTEND_URL,
   ].filter((origin): origin is string => Boolean(origin));
 
-  // No credentials: auth uses a bearer header, never cookies.
+  // No credentials: the browser reaches the API same-origin through /api
+  // (Vite proxy in dev, Vercel rewrite in prod), so CORS never carries the cookie.
   app.enableCors({ origin: allowedOrigins });
 
   const port = parseInt(process.env.PORT ?? '3000', 10);

@@ -1,6 +1,9 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
+import { ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
+import * as bcrypt from 'bcrypt';
+import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { PrismaService } from './prisma/prisma.service';
@@ -21,6 +24,7 @@ describe('Security pipeline over HTTP', () => {
     pet: { update: jest.Mock };
   };
   let token: string;
+  let throttlerStorage: ThrottlerStorageService;
 
   beforeAll(async () => {
     process.env = {
@@ -50,12 +54,15 @@ describe('Security pipeline over HTTP', () => {
       .compile();
 
     app = moduleRef.createNestApplication();
+    // Same middleware as main.ts.
+    app.use(cookieParser());
     // Same pipe as main.ts.
     app.useGlobalPipes(
       new ValidationPipe({ whitelist: true, transform: true }),
     );
     await app.init();
 
+    throttlerStorage = moduleRef.get<ThrottlerStorageService>(ThrottlerStorage);
     token = moduleRef
       .get(JwtService)
       .sign({ sub: 'user-1', email: 'owner@example.com', ver: 0 });
@@ -73,6 +80,17 @@ describe('Security pipeline over HTTP', () => {
 
   it('answers 401 on a protected route without a token', async () => {
     await request(app.getHttpServer()).get('/users/me').expect(401);
+  });
+
+  it('authenticates with the access_token cookie', async () => {
+    prisma.user.findUnique.mockResolvedValue({ tokenVersion: 0 });
+    prisma.pet.update.mockResolvedValue({ id: petId });
+
+    await request(app.getHttpServer())
+      .patch(`/pets/${petId}`)
+      .set('Cookie', `access_token=${token}`)
+      .send({ name: 'Rex' })
+      .expect(200);
   });
 
   it('drops body fields the DTO does not declare', async () => {
@@ -100,6 +118,30 @@ describe('Security pipeline over HTTP', () => {
       .set(headers)
       .send({ message: { chat: { id: 1 }, text: '/start x' } })
       .expect(401);
+  });
+
+  it('sets the JWT as an httpOnly cookie and keeps it out of the login body', async () => {
+    const password = 'Senha-certa1';
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'owner@example.com',
+      passwordHash: bcrypt.hashSync(password, 10),
+      tokenVersion: 0,
+      twoFactorEnabled: false,
+    });
+
+    const res = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'owner@example.com', password })
+      .expect(201);
+
+    const cookies = [res.headers['set-cookie']].flat().join('; ');
+    expect(cookies).toMatch(/access_token=[^;]+/);
+    expect(cookies).toContain('HttpOnly');
+    expect(res.body).not.toHaveProperty('access_token');
+    // This login counts against the per-IP limit; clear it so the
+    // throttle test below starts from a clean window.
+    throttlerStorage.storage.clear();
   });
 
   it('throttles login with 429 on the 6th attempt in a minute', async () => {

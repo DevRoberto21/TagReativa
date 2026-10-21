@@ -58,4 +58,26 @@ describe('JwtStrategy', () => {
       strategy.validate({ sub: 'gone', email: 'a@b.com', ver: 0 }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
+
+  it('reads the token from the access_token cookie', () => {
+    const extract = (
+      strategy as unknown as {
+        _jwtFromRequest: (req: unknown) => string | null;
+      }
+    )._jwtFromRequest;
+
+    expect(extract({ cookies: { access_token: 'abc' }, headers: {} })).toBe(
+      'abc',
+    );
+  });
+
+  it('still accepts a bearer header', () => {
+    const extract = (
+      strategy as unknown as {
+        _jwtFromRequest: (req: unknown) => string | null;
+      }
+    )._jwtFromRequest;
+
+    expect(extract({ headers: { authorization: 'Bearer xyz' } })).toBe('xyz');
+  });
 });

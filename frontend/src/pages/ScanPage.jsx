@@ -91,17 +91,17 @@ function ConsentScreen({ onChoose }) {
 export default function ScanPage() {
   const { petId } = useParams();
   const [shareLocation, setShareLocation] = useState(null);
-  const { result, error, loading } = useScan(petId, shareLocation);
+  const { status, result, error, loading } = useScan(petId, shareLocation);
   const secondsLeft = useCountdown(Boolean(result));
 
-  if (shareLocation == null && !error) {
+  if (status === 'LOST' && shareLocation == null && !error) {
     return <ConsentScreen onChoose={setShareLocation} />;
   }
 
   if (loading) {
     return (
       <Page center>
-        <ScanLoader label="Rastreando conexões e registrando scan..." />
+        <ScanLoader label={status ? 'Registrando leitura da tag...' : 'Lendo a tag...'} />
       </Page>
     );
   }
@@ -142,8 +142,8 @@ export default function ScanPage() {
     <Page center>
       <Panel tone={isLost ? 'alert' : 'signal'} brackets={false} className={styles.card}>
         <motion.div className={cx(styles.band, isLost && styles.bandLost)} variants={rise} custom={2}>
-          <Icon name={isLost ? 'alert' : 'shield'} size={22} />
-          <span>{isLost ? 'Sistema de Resgate Ativo' : 'Dispositivo em Zona Segura'}</span>
+          <Icon name={isLost ? 'alert' : 'check'} size={22} />
+          <span>{isLost ? 'Sistema de Resgate Ativo' : 'Este pet está seguro'}</span>
         </motion.div>
 
         <p className={cx(styles.countdown, secondsLeft <= 60 && styles.countdownLow)}>
@@ -184,7 +184,18 @@ export default function ScanPage() {
               )}
             </>
           ) : (
-            <p className={styles.sub}>O tutor não reportou nenhuma ocorrência ativa para este dispositivo.</p>
+            <>
+              <div className={styles.safe} role="status">
+                <Icon name="shield" size={28} className={styles.safeIcon} />
+                <div>
+                  <p className={styles.safeTitle}>{pet?.name ?? 'Este pet'} não está perdido</p>
+                  <p className={styles.sub}>O tutor não informou nenhum desaparecimento. Você não precisa fazer nada.</p>
+                </div>
+              </div>
+              <p className={styles.consentFoot}>
+                Sua localização não foi coletada. Registramos só o endereço IP e o identificador do aparelho, para evitar abuso.
+              </p>
+            </>
           )}
         </motion.div>
       </Panel>

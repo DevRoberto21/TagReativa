@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
+import { markSignedIn } from '../utils/session';
 import AuthLayout from '../components/AuthLayout';
 import Field from '../components/ui/Field';
 import Button from '../components/ui/Button';
@@ -11,6 +12,7 @@ export default function Register() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', whatsapp: '', password: '', confirm: '', age: '' });
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   function handleChange(e) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -32,6 +34,7 @@ export default function Register() {
       setError('Você precisa ter pelo menos 18 anos.');
       return;
     }
+    setSubmitting(true);
     try {
       const digits = form.whatsapp.replace(/\D/g, '');
       const normalized = digits.length === 11 ? digits.slice(0, 2) + digits.slice(3) : digits;
@@ -44,12 +47,13 @@ export default function Register() {
       });
     } catch {
       setError('Erro ao criar conta. Verifique os dados.');
+      setSubmitting(false);
       return;
     }
     try {
       // New accounts never have 2FA on, so login returns the token directly.
-      const { data } = await api.post('/auth/login', { email: form.email, password: form.password });
-      localStorage.setItem('access_token', data.access_token);
+      await api.post('/auth/login', { email: form.email, password: form.password });
+      markSignedIn();
       navigate('/alertas-email', { replace: true });
     } catch {
       navigate('/login');
@@ -84,7 +88,9 @@ export default function Register() {
         </Notice>
 
         {error && <Notice tone="error">{error}</Notice>}
-        <Button type="submit" block>Registrar no Ecossistema</Button>
+        <Button type="submit" block disabled={submitting}>
+          {submitting ? 'Criando conta...' : 'Criar conta'}
+        </Button>
       </form>
     </AuthLayout>
   );

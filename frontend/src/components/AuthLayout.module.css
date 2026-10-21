@@ -49,8 +49,10 @@
   font-size: 14px;
   font-weight: 600;
   text-align: center;
-  text-decoration: none;
-  color: var(--text-muted);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--signal) 50%, transparent);
+  text-underline-offset: 4px;
+  color: var(--text);
   border-radius: var(--radius);
   transition: color var(--dur-fast) var(--ease);
 }
