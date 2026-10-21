@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
+import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { PrismaService } from './prisma/prisma.service';
@@ -50,6 +51,8 @@ describe('Security pipeline over HTTP', () => {
       .compile();
 
     app = moduleRef.createNestApplication();
+    // Same middleware as main.ts.
+    app.use(cookieParser());
     // Same pipe as main.ts.
     app.useGlobalPipes(
       new ValidationPipe({ whitelist: true, transform: true }),
@@ -73,6 +76,17 @@ describe('Security pipeline over HTTP', () => {
 
   it('answers 401 on a protected route without a token', async () => {
     await request(app.getHttpServer()).get('/users/me').expect(401);
+  });
+
+  it('authenticates with the access_token cookie', async () => {
+    prisma.user.findUnique.mockResolvedValue({ tokenVersion: 0 });
+    prisma.pet.update.mockResolvedValue({ id: petId });
+
+    await request(app.getHttpServer())
+      .patch(`/pets/${petId}`)
+      .set('Cookie', `access_token=${token}`)
+      .send({ name: 'Rex' })
+      .expect(200);
   });
 
   it('drops body fields the DTO does not declare', async () => {

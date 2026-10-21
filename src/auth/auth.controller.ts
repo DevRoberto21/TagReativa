@@ -5,9 +5,13 @@ import {
   UseGuards,
   Request,
   HttpCode,
+  UseInterceptors,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
+import { AuthCookieInterceptor, clearAuthCookie } from './auth-cookie';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -22,6 +26,7 @@ interface AuthenticatedRequest {
 }
 
 @Controller('auth')
+@UseInterceptors(AuthCookieInterceptor)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -63,8 +68,12 @@ export class AuthController {
   @Post('logout')
   @UseGuards(AuthGuard('jwt'))
   @HttpCode(204)
-  logout(@Request() req: AuthenticatedRequest) {
-    return this.authService.logout(req.user.userId);
+  async logout(
+    @Request() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.authService.logout(req.user.userId);
+    clearAuthCookie(res);
   }
 
   @Post('2fa/enable')

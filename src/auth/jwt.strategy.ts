@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { AUTH_COOKIE } from './auth-cookie';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -10,7 +11,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!secret) throw new Error('FATAL: JWT_SECRET não definido.');
 
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      // Cookie for the browser; bearer header for curl and the HTTP tests.
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (req: { cookies?: Record<string, string> }) =>
+          req?.cookies?.[AUTH_COOKIE] ?? null,
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ]),
       ignoreExpiration: false,
       secretOrKey: secret,
       algorithms: ['HS256'],

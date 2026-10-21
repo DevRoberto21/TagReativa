@@ -7,9 +7,12 @@ import {
   Request,
   Patch,
   Delete,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
+import { clearAuthCookie } from '../auth/auth-cookie';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -47,10 +50,13 @@ export class UsersController {
   @UseGuards(AuthGuard('jwt'))
   @Delete('me')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
-  deleteMe(
+  async deleteMe(
     @Body() dto: DeleteAccountDto,
     @Request() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    return this.usersService.deleteMe(req.user.userId, dto);
+    const result = await this.usersService.deleteMe(req.user.userId, dto);
+    clearAuthCookie(res);
+    return result;
   }
 }
