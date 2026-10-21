@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import api from '../services/api';
+import { markSignedIn } from '../utils/session';
 import AuthLayout from '../components/AuthLayout';
 import Field from '../components/ui/Field';
 import Button from '../components/ui/Button';
@@ -32,7 +33,7 @@ export default function Login() {
         setLoginToken(data.loginToken);
         return;
       }
-      localStorage.setItem('access_token', data.access_token);
+      markSignedIn();
       navigate('/dashboard');
     } catch (err) {
       setError(
@@ -47,11 +48,11 @@ export default function Login() {
     e.preventDefault();
     setError('');
     try {
-      const { data } = await api.post('/auth/login/verify-2fa', {
+      await api.post('/auth/login/verify-2fa', {
         loginToken,
         code,
       });
-      localStorage.setItem('access_token', data.access_token);
+      markSignedIn();
       navigate('/dashboard');
     } catch {
       setError('Código inválido ou expirado.');

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import api from '../services/api';
+import { markSignedIn } from '../utils/session';
 import Page from '../components/ui/Page';
 import PageHeader from '../components/ui/PageHeader';
 import Panel from '../components/ui/Panel';
@@ -69,9 +70,9 @@ export default function TwoFactor() {
     setError('');
     setSubmitting(true);
     try {
-      const { data } = await api.post('/auth/2fa/confirm', { code });
+      await api.post('/auth/2fa/confirm', { code });
       // The change signs out every other session; this token keeps this one.
-      localStorage.setItem('access_token', data.access_token);
+      markSignedIn();
       setEnabled(true);
       setStep('idle');
       setCode('');
@@ -88,8 +89,8 @@ export default function TwoFactor() {
     setError('');
     setSubmitting(true);
     try {
-      const { data } = await api.post('/auth/2fa/disable', { password });
-      localStorage.setItem('access_token', data.access_token);
+      await api.post('/auth/2fa/disable', { password });
+      markSignedIn();
       setEnabled(false);
       setStep('idle');
       setPassword('');

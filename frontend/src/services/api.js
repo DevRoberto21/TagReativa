@@ -1,20 +1,9 @@
 import axios from 'axios';
+import { markSignedOut } from '../utils/session';
 
-if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
-  throw new Error('VITE_API_URL não definido.');
-}
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3000',
-});
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+// Same-origin on purpose: the Vite proxy (dev) and the Vercel rewrite (prod)
+// forward /api to the backend, so the session cookie stays first-party.
+const api = axios.create({ baseURL: '/api' });
 
 api.interceptors.response.use(
   (response) => response,
@@ -22,7 +11,7 @@ api.interceptors.response.use(
     const isPublicRoute = /^\/(scan|s)\//i.test(window.location.pathname);
     const isTwoFactorDisable = error.config?.url?.includes('/auth/2fa/disable');
     if (error.response?.status === 401 && !isPublicRoute && !isTwoFactorDisable) {
-      localStorage.removeItem('access_token');
+      markSignedOut();
       window.location.href = '/login';
     }
     return Promise.reject(error);

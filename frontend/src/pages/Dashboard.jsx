@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import api from '../services/api';
+import { markSignedOut } from '../utils/session';
 import { useQrModal } from '../hooks/useQrModal';
 import QrModal from '../components/QrModal';
 import ConfirmModal from '../components/ConfirmModal';
@@ -67,7 +68,7 @@ export default function Dashboard() {
   async function logout() {
     // A failed server logout must not keep the user signed in locally.
     await api.post('/auth/logout').catch(() => {});
-    localStorage.removeItem('access_token');
+    markSignedOut();
     navigate('/login');
   }
 

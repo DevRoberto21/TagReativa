@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { markSignedIn } from '../utils/session';
 import Page from '../components/ui/Page';
 import PageHeader from '../components/ui/PageHeader';
 import Panel from '../components/ui/Panel';
@@ -32,9 +33,9 @@ export default function ChangePassword() {
     }
     setSubmitting(true);
     try {
-      const { data } = await api.post('/auth/change-password', { currentPassword, newPassword });
+      await api.post('/auth/change-password', { currentPassword, newPassword });
       // The change signs out every other session; this token keeps this one.
-      localStorage.setItem('access_token', data.access_token);
+      markSignedIn();
       setCurrentPassword('');
       setNewPassword('');
       setConfirm('');

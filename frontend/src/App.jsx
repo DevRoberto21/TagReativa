@@ -14,10 +14,10 @@ import ChangePassword from './pages/ChangePassword';
 import ScanPage from './pages/ScanPage';
 import TelegramSetup from './pages/TelegramSetup';
 import EmailAlertsInfo from './pages/EmailAlertsInfo';
+import { isSignedIn } from './utils/session';
 
 function PrivateRoute({ children }) {
-  const token = localStorage.getItem('access_token');
-  if (!token) return <Navigate to="/login" replace />;
+  if (!isSignedIn()) return <Navigate to="/login" replace />;
   return children;
 }
 

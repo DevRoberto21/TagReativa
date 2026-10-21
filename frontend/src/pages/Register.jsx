@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
+import { markSignedIn } from '../utils/session';
 import AuthLayout from '../components/AuthLayout';
 import Field from '../components/ui/Field';
 import Button from '../components/ui/Button';
@@ -48,8 +49,8 @@ export default function Register() {
     }
     try {
       // New accounts never have 2FA on, so login returns the token directly.
-      const { data } = await api.post('/auth/login', { email: form.email, password: form.password });
-      localStorage.setItem('access_token', data.access_token);
+      await api.post('/auth/login', { email: form.email, password: form.password });
+      markSignedIn();
       navigate('/alertas-email', { replace: true });
     } catch {
       navigate('/login');
