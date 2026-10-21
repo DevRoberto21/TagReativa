@@ -174,3 +174,26 @@
   line-height: 1.5;
   color: var(--text-muted);
 }
+
+.safe {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--signal-dim);
+  border: 1px solid color-mix(in srgb, var(--signal) 35%, var(--line));
+  border-radius: var(--radius);
+}
+
+.safeIcon {
+  flex-shrink: 0;
+  color: var(--signal);
+}
+
+.safeTitle {
+  margin-bottom: var(--space-1);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--signal);
+}

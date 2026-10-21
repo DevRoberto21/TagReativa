@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Param,
   Body,
   Req,
@@ -25,6 +26,12 @@ const PetIdPipe: PipeTransform<string, string> = {
 @Controller('scan')
 export class ScanController {
   constructor(private readonly scanService: ScanService) {}
+
+  @Get(':petId/status')
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
+  status(@Param('petId', PetIdPipe) petId: string) {
+    return this.scanService.getStatus(petId);
+  }
 
   @Post(':petId')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
