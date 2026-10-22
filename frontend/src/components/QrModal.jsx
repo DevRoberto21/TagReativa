@@ -4,7 +4,12 @@ import Button from './ui/Button';
 import { useLastValue } from '../hooks/useLastValue';
 import styles from './ModalParts.module.css';
 
-export default function QrModal({ qrModal, onDownload, onDownloadPng, onClose }) {
+// Only phones/browsers that can share files get the share button.
+const canShare = (name, type) => typeof navigator !== 'undefined'
+    && Boolean(navigator.canShare?.({ files: [new File([''], name, { type })] }));
+const canSharePng = canShare('qr.png', 'image/png');
+
+export default function QrModal({ qrModal, onDownload, onDownloadPng, onShare, onClose }) {
     const titleId = useId();
     const shown = useLastValue(qrModal);
 
@@ -17,6 +22,9 @@ export default function QrModal({ qrModal, onDownload, onDownloadPng, onClose })
                     <div className={styles.qrPlate}>
                         <img src={shown.qr} alt="QR Code" className={styles.qrImg} />
                     </div>
+                    {canSharePng && (
+                        <Button block onClick={onShare}>Compartilhar Imagem (WhatsApp, etc.)</Button>
+                    )}
                     <div className={styles.row}>
                         <Button variant="secondary" size="sm" onClick={onDownloadPng}>Baixar Imagem (.PNG)</Button>
                         <Button variant="secondary" size="sm" onClick={onDownload}>Exportar Vetor (.SVG)</Button>

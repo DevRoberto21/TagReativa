@@ -26,7 +26,7 @@ export default function Dashboard() {
   const location = useLocation();
   // One-shot message handed over by the page that redirected here.
   const [notice, setNotice] = useState(location.state?.notice ?? '');
-  const { qrModal, openQr, downloadSvg, downloadPng, closeQr } = useQrModal();
+  const { qrModal, openQr, downloadSvg, downloadPng, sharePng, closeQr } = useQrModal();
 
   useEffect(() => {
     if (!notice) return;
@@ -161,6 +161,7 @@ export default function Dashboard() {
         qrModal={qrModal}
         onDownload={downloadSvg}
         onDownloadPng={downloadPng}
+        onShare={sharePng}
         onClose={closeQr}
       />
     </Page>
