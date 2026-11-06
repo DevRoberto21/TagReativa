@@ -157,3 +157,6 @@ docs/superpowers/
 
 modelo3d 
 .archify
+# TCC article files
+*TCC*.pdf
+*TCC*.txt
