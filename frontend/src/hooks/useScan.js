@@ -70,7 +70,9 @@ export function useScan(petId, chosenShareLocation) {
             pos => doScan(pos.coords.latitude, pos.coords.longitude),
             // Denied or timed out: scan goes out without any location.
             () => doScan(),
-            { timeout: 5000 },
+            // A browser opened straight from the camera has no position cached and
+            // needs a cold fix, which often takes longer than 5s; accept a recent one.
+            { timeout: 20000, maximumAge: 300000 },
         );
     }, [petId, validId, status, shareLocation]);
 
